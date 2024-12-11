@@ -93,15 +93,14 @@ func EvaluationProof(ts *TrustedSetup, p []*big.Int, z, y *big.Int) (*bn256.G1, 
 }
 
 // Verify computes the KZG commitment verification
-func Verify(ts *TrustedSetup, c, proof *bn256.G1, z, y *big.Int) bool {
+func Verify(ts *TrustedSetup, c, proof *bn256.G1, z *big.Int, y *bn256.G1 ) bool {
 	s2 := ts.Tau2[1] // [t]₂ = sG ∈ 𝔾₂ = Tau2[1]
 	zG2Neg := new(bn256.G2).Neg(
 		new(bn256.G2).ScalarBaseMult(z)) // [z]₂ = zG ∈ 𝔾₂
 	// [t]₂ - [z]₂
 	sz := new(bn256.G2).Add(s2, zG2Neg)
 
-	yG1Neg := new(bn256.G1).Neg(
-		new(bn256.G1).ScalarBaseMult(y)) // [y]₁ = yG ∈ 𝔾₁
+	yG1Neg := new(bn256.G1).Neg(y) // [y]₁ = yG ∈ 𝔾₁
 	// c - [y]₁
 	cy := new(bn256.G1).Add(c, yG1Neg)
 

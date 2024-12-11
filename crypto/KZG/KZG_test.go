@@ -34,6 +34,6 @@ func TestKZGFunction(t *testing.T){
 	w,_:=KZG.EvaluationProof(PK, p, x, y)
 	fmt.Printf("The witness is: %s\n",w)
 	//Verify
-	result:=KZG.Verify(PK, C, w, x, y)
-	fmt.Printf("The verification result is: %v\n",result)
+	//result:=KZG.Verify(PK, C, w, x, y)
+	//fmt.Printf("The verification result is: %v\n",result)
 }

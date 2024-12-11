@@ -38,8 +38,8 @@ func EGEncrypt(m *bn256.GT,pk *bn256.G1,s *big.Int)(*C){
 }
 
 
-func EGDecrypt(C *C, K *bn256.G1)(*bn256.GT){
-	m:=new(bn256.GT).Add(C.C1, new(bn256.GT).Neg(bn256.Pair(K,C.C0)))
+func EGDecrypt(C0 *bn256.G2, C1 *bn256.GT, K *bn256.G1)(*bn256.GT){
+	m:=new(bn256.GT).Add(C1, new(bn256.GT).Neg(bn256.Pair(K,C0)))
 	return m
 }
 

@@ -50,22 +50,51 @@ type DLEQProofG1_G2 struct {
 	RG *bn256.G1
 	RH *bn256.G2
 }
-/*
-var order = bn256.Order
 
-type DLEQProofs struct {
-	C  []*big.Int
-	Z  []*big.Int
-	XG []*bn256.G1
-	XH []*bn256.G1
-	RG []*bn256.G1
-	RH []*bn256.G1
+
+type RC struct {
+	C0  *bn256.G2
+	C1  *bn256.GT
+	C2 []*bn256.G1
+	C3 []*bn256.G1
+}
+
+// Compute Lagrangian interpolation on exponential
+func recoverKey(Key []*bn256.G1, indices []*big.Int, threshold int) *bn256.G1 {
+
+	k := threshold
+
+	Recover_Key := new(bn256.G1).ScalarBaseMult(big.NewInt(0))
+
+	for i := 0; i < k; i++ {
+
+		num := big.NewInt(1)
+		den := big.NewInt(1)
+
+		for j := 0; j < k; j++ {
+			if i != j {
+
+				num.Mul(num, new(big.Int).Neg(indices[j]))
+				num.Mod(num, R)
+
+				den.Mul(den, new(big.Int).Sub(indices[i], indices[j]))
+				den.Mod(den, R)
+			}
+		}
+
+		den.ModInverse(den, R)
+
+		term := new(big.Int).Mul(big.NewInt(1), num)
+		term.Mul(term, den)
+		term.Mod(term, R)
+		Recover_Key = new(bn256.G1).Add(Recover_Key, new(bn256.G1).ScalarMult(Key[i], term))
+	}
+	return Recover_Key
 }
 
 
 
-
-
+/*
 func G1ToG1Point(bn256Point *bn256.G1) contract.VerificationG1Point {
 	// Marshal the G1 point to get the X and Y coordinates as bytes
 	point := bn256Point.Marshal()
@@ -162,14 +191,14 @@ func main() {
 	}
 //======================================Sensitive Message Encryption========================================//
 	//Data owner encrypts the sensitive message M which is the AES key.
-	//secret=H()
+	//secret=H(sk||Nonce)
 	secret:=big.NewInt(int64(2))
 	m,_ := rand.Int(rand.Reader, Q)
 	//gT=e(g1,g2)
 	M:=bn256.Pair(new(bn256.G1).ScalarBaseMult(m),new(bn256.G2).ScalarBaseMult(big.NewInt(int64(1))))
 	fmt.Printf("The plaintext is %v\n",M)
-	C:= ElGamal.EGEncrypt(M,pko,secret)
-	fmt.Printf("The data ciphertext is %v\n",C)
+	Cipher:= ElGamal.EGEncrypt(M,pko,secret)
+	fmt.Printf("The data ciphertext is %v\n",Cipher)
 	/*
 	//Pair Check
 	K:=new(bn256.G1).ScalarMult(pko,s)
@@ -199,7 +228,7 @@ func main() {
 	ReKey1:=make([]*bn256.G1,numShares)
 	Base:=make([]*bn256.G1,numShares)
 	for i:=0;i<numShares;i++{
-		ReKey0[i]=new(bn256.G1).ScalarBaseMult(shares[i])
+		ReKey0[i]=new(bn256.G1).ScalarMult(PK.Tau1[0],shares[i])
 		Base[i]=new(bn256.G1).Add(pko,new(bn256.G1).Add(pk[i],pku))
 		ReKey1[i]=new(bn256.G1).ScalarMult(Base[i],shares[i])
 	}
@@ -207,7 +236,9 @@ func main() {
 	ReKey.RK1=ReKey1
 	fmt.Printf("The re-encrypted key shares are %v\n",ReKey)
 	
-	//Generate Proof
+	
+	
+	//Generate Proof including a KZG commitment, n part KZG witnesses, and n part DLEQ Proofs
 	//KZG commitment
 	Commit:=KZG.Commit(PK,coefficients)
 	fmt.Printf("The commitment is %v\n",Commit)
@@ -221,11 +252,70 @@ func main() {
 	//DLEQ Proof
 	prf_si := make([] DLEQProofG1,numShares)
 	for i:=0;i<numShares;i++{
-		_c,_z,_rg,_rh,_ := DLEQ.DLEQProofG1(PK.Tau1[0], ReKey.RK0[i], new(bn256.G1).Add(pk[i],new(bn256.G1).Add(pko,pku)), ReKey.RK1[i], shares[i])
+		_c,_z,_rg,_rh,_ := DLEQ.DLEQProofG1(PK.Tau1[0], Base[i], ReKey.RK0[i], ReKey.RK1[i], shares[i])
 		prf_si[i].C=_c
 		prf_si[i].Z=_z
 		prf_si[i].RG=_rg
-		prf_si[i].RH=_rh	
+		prf_si[i].RH=_rh
 	}
 	fmt.Printf("The DLEQ proof of re-encrypted key shares are %v\n",prf_si)
+	
+	//ReKeyVerify: Verify the corresponding proof of ReKey
+	for i:=0;i<numShares;i++{
+		x := big.NewInt(int64(i + 1))
+		if KZG.Verify(PK, Commit, witness[i], x, ReKey.RK0[i]) == true && DLEQ.VerifyG1(prf_si[i].C, prf_si[i].Z, PK.Tau1[0], new(bn256.G1).Add(pko,new(bn256.G1).Add(pk[i],pku)), ReKey.RK0[i], ReKey.RK1[i], prf_si[i].RG, prf_si[i].RH) == nil{
+			fmt.Printf("The index %v of re-encrypted key shares passes the check!\n",i)
+		}else{
+			fmt.Printf("The index %v of re-encrypted key shares fails to pass the check!\n",i)
+		}
+		
+	}
+	
+//======================================Data Ciphertext Re-encryption========================================//	
+//Compute re-encrypted ciphertext
+	var ReCipher RC
+	c2:=make([]*bn256.G1,numShares)
+	c3:=make([]*bn256.G1,numShares)
+	for i:=0;i<numShares;i++{
+		c2[i]=ReKey.RK0[i]
+		c3[i]=new(bn256.G1).Add(ReKey.RK1[i], new(bn256.G1).Neg(new(bn256.G1).ScalarMult(ReKey.RK0[i],sk[i])))
+	}
+	ReCipher.C0=Cipher.C0
+	ReCipher.C1=Cipher.C1
+	ReCipher.C2=c2
+	ReCipher.C3=c3
+	fmt.Printf("The re-encypted ciphertext is %v\n",ReCipher)
+
+//Verify re-encrypted ciphertext
+	var I []*big.Int
+	for i:=0;i<numShares;i++{
+		e1:=bn256.Pair(ReCipher.C3[i],PK.Tau2[0])
+		e2:=bn256.Pair(ReCipher.C2[i],new(bn256.G2).Add(vko,vku))
+		if  e1.String() == e2.String() {
+			fmt.Printf("The index %v of ReCipher passes the check!\n",i)
+			x := big.NewInt(int64(i + 1))
+			I=append(I,x)
+		}else{
+		fmt.Printf("The index %v of ReCipher fails to pass the check!\n",i)
+		}
+		if len(I)==threshold+1{
+			break
+		}
+		
+	}
+	fmt.Printf("The index of correct re-encrypted ciphertext shares is %v\n",I)
+//===================================Re-encrypted Ciphertext Decryption======================================//
+	//Data onwer decrypts the data ciphertext
+	fmt.Printf("The plaintext is %v\n",M)
+	DO_M:=new(bn256.GT).Add(Cipher.C1,new(bn256.GT).Neg(bn256.Pair(new(bn256.G1).ScalarMult(pko,secret),Cipher.C0)))
+	fmt.Printf("The decryption result of data onwer is %v\n",DO_M)
+	//Data user decrypts the re-encrypted ciphertext	
+	KeyShares:=make([]*bn256.G1,len(I))
+	for i:=0;i<len(I);i++{
+		KeyShares[i]=new(bn256.G1).Add(ReCipher.C3[i],new(bn256.G1).Neg(new(bn256.G1).ScalarMult(ReCipher.C2[i],sku)))
+	}
+	Key:=recoverKey(KeyShares, I, threshold)
+	DU_M:=ElGamal.EGDecrypt(ReCipher.C0, ReCipher.C1, Key)
+	fmt.Printf("The decryption result of data user is %v\n",DU_M)
 }
+

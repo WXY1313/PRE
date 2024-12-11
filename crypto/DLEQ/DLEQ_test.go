@@ -32,13 +32,13 @@ func TestMyFunction(t *testing.T) {
 	xH := new(bn256.G1).ScalarMult(H, x)
 
 	//生成证明（xH和xG拥有相同的指数x，xH=x*H,xG=x*G）
-	c, z, rG, rH, err := dleq.NewDLEQProof(G, H, xG, xH, x)
+	c, z, rG, rH, err := DLEQ.DLEQProofG1(G, H, xG, xH, x)
 	if err != nil {
 		fmt.Println("Failed to create DLEQ proof:", err)
 		return
 	}
 
-	rtn := dleq.Verify(c, z, G, H, xG, xH, rG, rH)
+	rtn := DLEQ.VerifyG1(c, z, G, H, xG, xH, rG, rH)
 
 	if rtn == nil {
 		fmt.Printf("\n\nPeggy has proven she still knows her secret")

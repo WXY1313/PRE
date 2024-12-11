@@ -4,9 +4,9 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"errors"
-	"fmt"
+	//"fmt"
 	"math/big"
-	"strings"
+	//"strings"
 
 	bn256 "github.com/ethereum/go-ethereum/crypto/bn256/cloudflare"
 )
@@ -103,46 +103,4 @@ func VerifyG1_G2(c, z *big.Int, G *bn256.G1, H *bn256.G2, xG *bn256.G1, xH *bn25
 	return nil
 }
 
-func Mul_NewDLEQProof(G, H, xG, xH []*bn256.G1, x []*big.Int) (C, Z []*big.Int, XG, XH, RG, RH []*bn256.G1, err error) {
-	k := len(G)
-	C = make([]*big.Int, k)
-	Z = make([]*big.Int, k)
-	XG = make([]*bn256.G1, k)
-	XH = make([]*bn256.G1, k)
-	RG = make([]*bn256.G1, k)
-	RH = make([]*bn256.G1, k)
-	var errors []string
 
-	for i := 0; i < k; i++ {
-		c, z, rg, rh, err := DLEQProofG1(G[i], H[i], xG[i], xH[i], x[i])
-		if err != nil {
-			errorMsg := fmt.Sprintf("第%d个proof生成错误: %v", i, err)
-			errors = append(errors, errorMsg)
-			continue // Optionally skip this index and continue or you can store placeholders
-		}
-		C[i], Z[i], XG[i], XH[i], RG[i], RH[i] = c, z, xG[i], xH[i], rg, rh
-	}
-
-	if len(errors) > 0 {
-		return nil, nil, nil, nil, nil, nil, fmt.Errorf("证明生成失败:\n%s", strings.Join(errors, "\n"))
-	}
-	return C, Z, XG, XH, RG, RH, nil
-}
-
-func Mul_Verify(C, Z []*big.Int, G, H, XG, XH, RG, RH []*bn256.G1) error {
-	k := len(C)
-	var errors []string
-
-	for i := 0; i < k; i++ {
-		err := VerifyG1(C[i], Z[i], G[i], H[i], XG[i], XH[i], RG[i], RH[i])
-		if err != nil {
-			errorMsg := fmt.Sprintf("第%d个proof有问题: %v", i, err)
-			errors = append(errors, errorMsg)
-		}
-	}
-
-	if len(errors) > 0 {
-		return fmt.Errorf("verification failed:\n%s", strings.Join(errors, "\n"))
-	}
-	return nil
-}
