@@ -4,234 +4,6 @@ pragma solidity ^0.8.0;
 // https://www.iacr.org/cryptodb/archive/2002/ASIACRYPT/50/50.pdf
 contract Verification
 {
-    //Storing TTP information
-    struct TTP {
-        int256 CV_i;      //credit value
-        int256 EV_i;      //expected valu
-        int256 RP_i;      //Refundable percentage*100
-        int256 EDA_i;     //expected digital assets
-        address account;
-    }
-
-    struct task {
-        uint tasktime;
-        address date_owner;
-        address date_user;
-        uint date_fee;
-        address[] TTPS;
-        uint256 n;       //The number of ttp required to complete the task
-        //Complete the ttp of the deposit data.
-        uint[] sendersdata;
-        //Store verified address
-        uint[] senderss;
-        //Store unverified addressesuint
-        uint[] sendersf;
-        //Complete the ttp of the deposit funds.
-        uint[] sendersa;
-        int success_distribute1;
-        int fail_distribute1;
-        uint256 ALL_fee;
-    }
-
-
-    TTP[] TTPS;
-    task[] tasks;
-
-
-    int public MDA_i = 50;  //minimum deposited assets
-    int public a = 6;
-    int public b = 3;
-
-    // A mapping to store the ether balance of each user
-    mapping(uint => mapping(uint => uint)) public balances;
-    mapping(uint => uint[]) public task_success;
-    mapping(uint => uint[]) public task_failed;
-
-    function new_task(address date_owner, address date_user, uint date_fee, uint256 n) public returns (uint)
-    {
-
-        task memory newTask;
-        newTask.tasktime = block.timestamp;
-        newTask.date_owner = date_owner;
-        newTask.date_user = date_user;
-        newTask.date_fee = date_fee;
-        newTask.n = n;
-
-
-        newTask.TTPS = new address[](0);
-        newTask.sendersdata = new uint[](0);
-        newTask.sendersa = new uint[](0);
-        newTask.success_distribute1 = 0;
-        newTask.fail_distribute1 = 0;
-        newTask.ALL_fee = 0;
-        tasks.push(newTask);
-        return tasks.length - 1;
-    }
-
-    //Function to calculate EDA_i
-    function TTP_register(int256 CV_i, int256 EV_i, int256 RP_i, address account) public returns (uint, int){
-
-        int EDA_i;
-        int A;
-
-        A = a * EV_i * RP_i / 100 - b * CV_i;
-        if (A > MDA_i) {
-            EDA_i = A;
-        }
-
-        else {
-            EDA_i = MDA_i;
-        }
-        uint id = TTPS.length;
-        TTPS.push(TTP(CV_i, EV_i, RP_i, EDA_i, account));
-        return (id, EDA_i);
-    }
-    //Query TTP information
-    function query_TTP(uint id) public view returns (int256, int256, int256, int256, address) {
-        return (TTPS[id].CV_i, TTPS[id].EV_i, TTPS[id].RP_i, TTPS[id].EDA_i, TTPS[id].account);
-    }
-
-    // A function to deposit ether to the contract
-    function deposit(uint TTP_id, uint task_id) public payable {
-        TTP memory ttp = TTPS[TTP_id];
-        int256 A = ttp.EDA_i;
-        uint256 B;
-        B = balances[TTP_id][task_id];
-        require(B == 0, "You have already deposited");
-        require(msg.value == uint256(A), "You must send  EDA_i wei");
-        balances[TTP_id][task_id] = msg.value;
-        tasks[task_id].sendersa.push(TTP_id);
-    }
-
-    //date_user pay
-    function date_user_fee(uint task_id) public returns (uint256) {
-        uint256 ALL_fees = 0;
-        for (uint i = 0; i < tasks[task_id].sendersa.length; i++) {
-            uint TTP_id = tasks[task_id].sendersa[i];
-            ALL_fees += uint(TTPS[TTP_id].EV_i);
-        }
-        tasks[task_id].ALL_fee = ALL_fees + tasks[task_id].date_fee;
-        return (tasks[task_id].ALL_fee);
-    }
-
-    function query_date_user_fee(uint task_id) public view returns (uint256) {
-        return tasks[task_id].ALL_fee;
-    }
-
-    //date_user pay
-    function date_user_pay(uint task_id) public payable {
-        require(tasks[task_id].ALL_fee == msg.value, "The amount you sent is wrong");
-    }
-
-    function Submit_verification_results(uint task_id, uint[] memory success, uint[] memory failed) public {
-        task_success[task_id] = success;
-        task_failed[task_id] = failed;
-    }
-
-    //Allocation of Funds for Successful Mission Execution
-    function success_distribute(uint task_id) public {
-        require(block.timestamp <= tasks[task_id].tasktime + 2 minutes, "Not enough time passed");
-        uint[] memory success = task_success[task_id];
-        uint[] memory failed = task_failed[task_id];
-        require(success.length >= tasks[task_id].n, "The number of ttp has not reached the threshold");
-
-        for (uint i = 0; i < failed.length; i++) {
-            TTP memory ttp = TTPS[failed[i]];
-            address payable recipient1 = payable(ttp.account);
-            uint refund = balances[failed[i]][task_id] * uint(ttp.RP_i) / 100;
-            recipient1.transfer(refund);
-            balances[failed[i]][task_id] -= refund;
-        }
-        uint ALL = 0;
-        for (uint i = 0; i < failed.length; i++) {
-            ALL += balances[failed[i]][task_id];
-        }
-        uint share = ALL / success.length;
-
-        for (uint i = 0; i < success.length; i++) {
-            TTP memory ttp = TTPS[success[i]];
-            address payable recipient2 = payable(ttp.account);
-            uint amount = balances[success[i]][task_id] + uint(ttp.EV_i) + share;
-            recipient2.transfer(amount);
-        }
-        address payable recipient3 = payable(tasks[task_id].date_owner);
-        uint data_owner_fee = tasks[task_id].date_fee;
-        recipient3.transfer(data_owner_fee);
-        tasks[task_id].success_distribute1 = 1;
-
-    }
-
-    //Allocation of Funds for Failed Task Executions
-    function fail_distribute(uint task_id) public {
-        //require(block.timestamp >= tasks[task_id].tasktime +  2 minutes, "Not enough time passed");
-        uint[] memory success = task_success[task_id];
-        uint[] memory failed = task_failed[task_id];
-        require(success.length < tasks[task_id].n, "Record is already completed");
-        for (uint i = 0; i < failed.length; i++) {
-            TTP memory ttp = TTPS[failed[i]];
-            address payable recipient1 = payable(ttp.account);
-            uint refund = balances[failed[i]][task_id] * uint(ttp.RP_i) / 100;
-            recipient1.transfer(refund);
-            balances[failed[i]][task_id] -= refund;
-        }
-        uint ALL = 0;
-        for (uint i = 0; i < failed.length; i++) {
-            ALL += balances[failed[i]][task_id];
-        }
-        uint share = ALL / (success.length + 1);
-
-        //给验证成功的TTP发钱
-        for (uint i = 0; i < success.length; i++) {
-            TTP memory ttp = TTPS[success[i]];
-            address payable recipient2 = payable(ttp.account);
-            uint amount = balances[success[i]][task_id] + share;
-            recipient2.transfer(amount);
-        }
-        address payable recipient3 = payable(tasks[task_id].date_user);
-        uint data_user_fee = tasks[task_id].ALL_fee + share;
-        recipient3.transfer(data_user_fee);
-        tasks[task_id].fail_distribute1 == 1;
-    }
-
-    //Function to update CV_i
-    function updateCY_i(uint task_id) public {
-        uint[] memory success = task_success[task_id];
-        uint[] memory failed = task_failed[task_id];
-        if (tasks[task_id].success_distribute1 == 1) {
-            for (uint i = 0; i < success.length; i++) {
-                TTPS[success[i]].CV_i += 5;
-            }
-            for (uint i = 0; i < failed.length; i++) {
-                TTPS[failed[i]].CV_i -= 2;
-            }
-        }
-        else if (tasks[task_id].fail_distribute1 == 1) {
-            for (uint i = 0; i < success.length; i++) {
-                TTPS[success[i]].CV_i += 5;
-            }
-            for (uint i = 0; i < failed.length; i++) {
-                TTPS[failed[i]].CV_i -= 5;
-            }
-        }
-    }
-
-    mapping(string => address) public id2Addrs;
-
-    function register(string memory id)
-    public
-    payable
-    returns (bool)
-    {
-        id2Addrs[id] = msg.sender;
-        return true;
-    }
-
-    // p = p(u) = 36u^4 + 36u^3 + 24u^2 + 6u + 1
-    uint256 constant FIELD_ORDER = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47;
-
-    // Number of elements in the field (often called `q`)
-    // n = n(u) = 36u^4 + 36u^3 + 18u^2 + 6u + 1
-    //uint256 constant CURVE_ORDER = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001;
     uint256 constant CURVE_ORDER = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001;
     uint256 constant CURVE_B = 3;
 
@@ -253,10 +25,11 @@ contract Verification
     function A() pure internal returns (uint256) {
         return CURVE_A;
     }
-
+/*
     function P() pure internal returns (uint256) {
         return FIELD_ORDER;
     }
+*/
 
     function N() pure internal returns (uint256) {
         return CURVE_ORDER;
@@ -299,6 +72,7 @@ contract Verification
         require(success);
     }
 
+/*
     function VSSVerify(G1Point[] memory commitments) public payable returns (bool)
     {
         for(uint i=0;i<Gs.length;i++){
@@ -393,25 +167,48 @@ contract Verification
     DLEQProof DLEQProofDis;
     EKey[] EKeys;
     bool[] VerificationResult;
-
-    function UploadGenerator(G1Point memory generator) public {
-        g = generator;
+*/
+    struct SystemKey {
+	    G1Point Tau1;
+	    G2Point Tau2 ;   	
     }
 
-    function UploadOwnerPk(G1Point memory pk) public {
-        OwnerPk = pk;
+    struct UKey {
+	    G1Point pk;
+	    G2Point vk;   	
     }
 
-    function UploadUserPk(G1Point memory pk) public {
-        UserPk = pk;
-    }
-
-    function UploadTTPsPk(G1Point[] memory pkArray) public {
-        //G1Point[] memory TPPs_PKs = new G1Point[](pkArray.length);
-        for (uint i = 0; i < pkArray.length; i++) {
-            TTPsPk.push(pkArray[i]);
+    SystemKey[] PK;
+    UKey OwnerKey;
+    UKey UserKey;
+    G1Point[] DRsKey;
+    
+    function UploadSystemKey(G1Point[] memory tau1, G2Point[] memory tau2) public {
+        SystemKey memory pk;
+    	for (uint i = 0; i < tau1.length; i++) {
+            pk.Tau1=tau1[i];
+            pk.Tau2=tau2[i];
+            PK.push(pk);
         }
     }
+
+    function UploadOwnerKey(G1Point memory pk,G2Point memory vk) public {
+        OwnerKey.pk = pk;
+        OwnerKey.vk = vk;
+    }
+
+    function UploadUserKey(G1Point memory pk,G2Point memory vk) public {
+        UserKey.pk = pk;
+        UserKey.vk = vk;
+    }
+
+    function UploadDRsKey(G1Point[] memory pkArray) public {
+        for (uint i = 0; i < pkArray.length; i++) {
+            	DRsKey.push(pkArray[i]);
+        	}
+    }
+
+/*   
 
     function UploadCiphertext(G1Point memory c0, G1Point memory c1) public {
         ciphertext.C0 = c0;
@@ -477,5 +274,5 @@ contract Verification
     function GetVrfResult() public view returns (bool[] memory) {
         return VerificationResult;
     }
-
+*/
 }

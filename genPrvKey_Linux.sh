@@ -5,7 +5,7 @@
 set -x
 
 # 启动 Ganache CLI 并将输出重定向到临时文件
-ganache --mnemonic "dttp" > ganache_output.txt &
+ganache --mnemonic "PRE" > ganache_output.txt &
 
 # 等待 Ganache CLI 完全启动
 sleep 5
