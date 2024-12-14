@@ -601,23 +601,29 @@ contract Verification
         return VKResult;
     }
 
-    G2Point TestAdd;
-    uint256 X0=1;
-    uint256 X1=1;
-    uint256 Y0=1;
-    uint256 Y1=1;
-
+    uint256 X0;
+    uint256 X1;
+    uint256 Y0;
+    uint256 Y1;
+/*
     function TestECTwistAdd() public returns (uint256,uint256,uint256,uint256) {
-        (X0,X1,Y0,Y1) = ECTwistAdd(PK[0].Tau2.X[0],PK[0].Tau2.X[1],PK[0].Tau2.Y[0],PK[0].Tau2.Y[1],PK[1].Tau2.X[0],PK[1].Tau2.X[1],PK[1].Tau2.Y[0],PK[1].Tau2.Y[1]);
+        (X0,X1,Y0,Y1) = ECTwistAdd(1,2,3,4,5,6,7,8);
 
         return (X0,X1,Y0,Y1);
     }
 
-    function GetPKTau2() public view returns (G2Point memory){
-        return PK[0].Tau2;
+    function GetTestAdd()public view returns(uint256,uint256,uint256,uint256){
+        return (X0,X1,Y0,Y1);
+    }
+*/
+
+    function TestECTwistMul() public returns (uint256,uint256,uint256,uint256) {
+        (X0,X1,Y0,Y1) = ECTwistMul(5,1,2,3,4);
+
+        return (X0,X1,Y0,Y1);
     }
 
-    function GetTestAdd()public view returns(uint256,uint256,uint256,uint256){
+    function GetTestMul()public view returns(uint256,uint256,uint256,uint256){
         return (X0,X1,Y0,Y1);
     }
 

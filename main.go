@@ -186,19 +186,16 @@ func main() {
 	fmt.Printf("UploadSystemKey Gas used: %d\n", receipt0.GasUsed)
 
 	auth10 := utils.Transact(client, privatekey, big.NewInt(0))
-	tx10, _ := Contract.TestECTwistAdd(auth10)
+	tx10, _ := Contract.TestECTwistMul(auth10)
 
 	receipt10, err := bind.WaitMined(context.Background(), client, tx10)
 	if err != nil {
 		log.Fatalf("Tx receipt failed: %v", err)
 	}
-	fmt.Printf("TestECTwistAdd Gas used: %d\n", receipt10.GasUsed)
+	fmt.Printf("TestECTwistMul Gas used: %d\n", receipt10.GasUsed)
 
-	TestPKTau2, _ := Contract.GetPKTau2(&bind.CallOpts{})
-	fmt.Printf("The TestPKTau2 return %v\n", TestPKTau2)
-
-	X0, X1, Y0, Y1, _ := Contract.GetTestAdd(&bind.CallOpts{})
-	fmt.Printf("The G2 TestAdd result is %v,%v,%v,%v\n", X0, X1, Y0, Y1)
+	X0, X1, Y0, Y1, _ := Contract.GetTestMul(&bind.CallOpts{})
+	fmt.Printf("The G2 TestMul result is %v,%v,%v,%v\n", X0, X1, Y0, Y1)
 
 	//TestResult, _ := Contract.TestReturn(&bind.CallOpts{})
 	//fmt.Printf("Test result is: %v\n", TestResult)
