@@ -1,4 +1,4 @@
-# `Data exchange for the metaverse with accountable decentralized arbitrators and an incentive mechanism`
+# `Auditable healthcare data regulation based on fault-tolerant proxy re-encryption`
 
 
 # Pre-requisites
@@ -22,8 +22,6 @@ Version: 0.8.25-develop
 # File description
 
 * `main.go`   run this file to test the functionalities of the framework.
-
-* `incentive.go`  run this file to test the incentive mechanism.
 
 * `compile/contract/`  The folder stores contract source code file (.sol) and generated go contract file.
 
