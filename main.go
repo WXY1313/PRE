@@ -88,9 +88,9 @@ func recoverKey(Key []*bn256.G1, indices []*big.Int, threshold int) *bn256.G1 {
 	return Recover_Key
 }
 
-func G1ToG1Point(bn256G1Point *bn256.G1) contract.VerificationG1Point {
+func G1ToG1Point(bn256Point *bn256.G1) contract.VerificationG1Point {
 	// Marshal the G1 point to get the X and Y coordinates as bytes
-	point := bn256G1Point.Marshal()
+	point := bn256Point.Marshal()
 
 	// Create big.Int for X and Y coordinates
 	x := new(big.Int).SetBytes(point[:32])
@@ -183,7 +183,23 @@ func main() {
 	if err != nil {
 		log.Fatalf("Tx receipt failed: %v", err)
 	}
-	fmt.Printf("Test function Gas used: %d\n", receipt0.GasUsed)
+	fmt.Printf("UploadSystemKey Gas used: %d\n", receipt0.GasUsed)
+
+	auth10 := utils.Transact(client, privatekey, big.NewInt(0))
+	tx10, _ := Contract.TestECTwistAdd(auth10)
+
+	receipt10, err := bind.WaitMined(context.Background(), client, tx10)
+	if err != nil {
+		log.Fatalf("Tx receipt failed: %v", err)
+	}
+	fmt.Printf("TestECTwistAdd Gas used: %d\n", receipt10.GasUsed)
+
+	TestPKTau2, _ := Contract.GetPKTau2(&bind.CallOpts{})
+	fmt.Printf("The TestPKTau2 return %v\n", TestPKTau2)
+
+	X0, X1, Y0, Y1, _ := Contract.GetTestAdd(&bind.CallOpts{})
+	fmt.Printf("The G2 TestAdd result is %v,%v,%v,%v\n", X0, X1, Y0, Y1)
+
 	//TestResult, _ := Contract.TestReturn(&bind.CallOpts{})
 	//fmt.Printf("Test result is: %v\n", TestResult)
 
@@ -193,19 +209,47 @@ func main() {
 	sko, pko := ElGamal.EGKeyGen()
 	vko := new(bn256.G2).ScalarBaseMult(sko)
 	//fmt.Printf("The key pair of data owner is %v || %v || %v\n", sko, pko, vko)
-	//DLEQProof(g1,pko,g2,vko,sko)
+	//Upload pko and vko on the blockchain
+	auth1 := utils.Transact(client, privatekey, big.NewInt(0))
+	tx1, _ := Contract.UploadOwnerKey(auth1, G1ToG1Point(pko), G2ToG2Point(vko))
+	receipt1, err := bind.WaitMined(context.Background(), client, tx1)
+	if err != nil {
+		log.Fatalf("Tx receipt failed: %v", err)
+	}
+	fmt.Printf("UploadOwnerKey Gas used: %d\n", receipt1.GasUsed)
+
+	//Generate vko's DLEQ proof: DLEQProof(g1,pko,g2,vko,sko)
 	var prf_sko DLEQProofG1_G2
 	c, z, rg, rh, _ := DLEQ.DLEQProofG1_G2(PK.Tau1[0], PK.Tau2[0], pko, vko, sko)
 	prf_sko.C = c
 	prf_sko.Z = z
 	prf_sko.RG = rg
 	prf_sko.RH = rh
+	//Upload vko's DLEQ proof on the blockchain
+	auth2 := utils.Transact(client, privatekey, big.NewInt(0))
+	tx2, _ := Contract.UploadVKoDLEQ(auth2, G1ToG1Point(prf_sko.RG), G2ToG2Point(prf_sko.RH), prf_sko.C, prf_sko.Z)
+	receipt2, err := bind.WaitMined(context.Background(), client, tx2)
+	if err != nil {
+		log.Fatalf("Tx receipt failed: %v", err)
+	}
+	fmt.Printf("UploadVKoDLEQ Gas used: %d\n", receipt2.GasUsed)
+
 	//fmt.Printf("The DLEQ proof of vko is %v\n", prf_sko)
 	//KeyGen_u(off-chain)
 	//The key pair of data user
 	sku, pku := ElGamal.EGKeyGen()
 	vku := new(bn256.G2).ScalarBaseMult(sku)
 	//fmt.Printf("The key pair of data user is %v || %v || %v\n", sku, pku, vku)
+	//Upload pku and vku on the blockchain
+	auth3 := utils.Transact(client, privatekey, big.NewInt(0))
+	tx3, _ := Contract.UploadUserKey(auth3, G1ToG1Point(pku), G2ToG2Point(vku))
+	receipt3, err := bind.WaitMined(context.Background(), client, tx3)
+	if err != nil {
+		log.Fatalf("Tx receipt failed: %v", err)
+	}
+	fmt.Printf("UploadUserKey Gas used: %d\n", receipt3.GasUsed)
+
+	//Generate vku's DLEQ proof:DLEQProof(g1,pku,g2,vku,sku)
 	var prf_sku DLEQProofG1_G2
 	c, z, rg, rh, _ = DLEQ.DLEQProofG1_G2(PK.Tau1[0], PK.Tau2[0], pku, vku, sku)
 	prf_sku.C = c
@@ -213,24 +257,54 @@ func main() {
 	prf_sku.RG = rg
 	prf_sku.RH = rh
 	//fmt.Printf("The DLEQ proof of vku is %v\n", prf_sku)
+	//Upload vku's DLEQ proof on the blockchain
+	auth4 := utils.Transact(client, privatekey, big.NewInt(0))
+	tx4, _ := Contract.UploadVKuDLEQ(auth4, G1ToG1Point(prf_sku.RG), G2ToG2Point(prf_sku.RH), prf_sku.C, prf_sku.Z)
+	receipt4, err := bind.WaitMined(context.Background(), client, tx4)
+	if err != nil {
+		log.Fatalf("Tx receipt failed: %v", err)
+	}
+	fmt.Printf("UploadVKuDLEQ Gas used: %d\n", receipt4.GasUsed)
 	//KeyGen_DR(off-chain)
 	//The key pair of data regulators
 	sk := make([]*big.Int, numShares)
 	pk := make([]*bn256.G1, numShares)
+	DRsPK := make([]contract.VerificationG1Point, numShares)
 	for i := 0; i < numShares; i++ {
 		sk[i], pk[i] = ElGamal.EGKeyGen()
+		DRsPK[i] = G1ToG1Point(pk[i])
 		//fmt.Printf("The key pair of data regulator%v is %v || %v\n", i, sk[i], pk[i])
 	}
+	//Upload all public keys of data regulators on the blockchain
+	auth5 := utils.Transact(client, privatekey, big.NewInt(0))
+	tx5, _ := Contract.UploadDRsKey(auth5, DRsPK)
+	receipt5, err := bind.WaitMined(context.Background(), client, tx5)
+	if err != nil {
+		log.Fatalf("Tx receipt failed: %v", err)
+	}
+	fmt.Printf("UploadDRsKey Gas used: %d\n", receipt5.GasUsed)
 
 	//VKVerify
 	//vko verify(on-chain)
-	DLEQResult := DLEQ.VerifyG1_G2(prf_sko.C, prf_sko.Z, PK.Tau1[0], PK.Tau2[0], pko, vko, prf_sko.RG, prf_sko.RH)
+	auth6 := utils.Transact(client, privatekey, big.NewInt(0))
+	tx6, _ := Contract.VKoVerify(auth6)
+	receipt6, err := bind.WaitMined(context.Background(), client, tx6)
+	if err != nil {
+		log.Fatalf("Tx receipt failed: %v", err)
+	}
+	fmt.Printf("VKoVerify Gas used: %d\n", receipt6.GasUsed)
 
+	//fmt.Printf("The off-chain vko is %v\n", prf_sko)
+	VKoResult, _ := Contract.GetVKoResult(&bind.CallOpts{})
+	fmt.Printf("The Verification result of vko is %v\n", VKoResult)
+
+	DLEQResult := DLEQ.VerifyG1_G2(prf_sko.C, prf_sko.Z, PK.Tau1[0], PK.Tau2[0], pko, vko, prf_sko.RG, prf_sko.RH)
 	if DLEQResult == nil {
 		fmt.Printf("\n\nThe verification of vko passes!\n\n")
 	} else {
 		fmt.Printf("\n\nThe verification of vko fails to pass!\n\n")
 	}
+
 	//vku verify(on-chain)
 	DLEQResult = DLEQ.VerifyG1_G2(prf_sku.C, prf_sku.Z, PK.Tau1[0], PK.Tau2[0], pku, vku, prf_sku.RG, prf_sku.RH)
 
