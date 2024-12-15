@@ -37,7 +37,7 @@ Version: 0.8.25-develop
 1. Generate private keys to generate the `.env` file
 
     ```bash
-    bash genPrvKey.sh
+    bash genPrvKey_Linux.sh
     ```
 
 2. start ganache

@@ -461,27 +461,6 @@ contract Verification
 
 
 /*
-    function VSSVerify(G1Point[] memory commitments) public payable returns (bool)
-    {
-        for(uint i=0;i<Gs.length;i++){
-            G1Point memory right;
-            uint256 xPower=1;
-            uint256 x=i+1;
-            G1Point memory temp;
-            for(uint j=0;j<commitments.length;j++){
-                temp = g1mul(commitments[j], xPower);
-                right=g1add(right, temp);
-                xPower=mulmod(xPower, x, CURVE_ORDER);
-            }
-            if(Gs[i].X != right.X||Gs[i].Y != right.Y){
-                VerificationResult.push(false);
-                return false;
-            }
-        }
-        VerificationResult.push(true);
-        return true;
-    }
-
     function DLEQVerifyCKeys() public payable returns (bool)
     {
         for (uint256 i = 0; i < DLEQProofCKeys.length; i++)
@@ -515,11 +494,33 @@ contract Verification
 	    G2Point vk;   	
     }
 
+    struct G1DLEQProof {
+        G1Point a1;
+        G1Point a2;
+        uint256 c;
+        uint256 z;
+    }
+
     struct G1G2DLEQProof {
         G1Point a1;
         G2Point a2;
         uint256 c;
         uint256 z;
+    }
+
+    struct Cipher {
+        G2Point C0;
+        string C1;
+    }
+
+    struct ReKey{
+        G1Point RK0;
+        G1Point RK1;
+    }
+
+    struct ReKeyProof{
+        G1Point Witness;
+        G1DLEQProof ShareDLEQ;
     }
 
 
@@ -532,6 +533,11 @@ contract Verification
     bool VKoResult;
     bool VKuResult;
     bool[] VKResult;
+    Cipher ciphertext;
+    ReKey[] ReKeys;
+    G1Point Commitment;
+    ReKeyProof[] ReKeysProof;
+
     
     function UploadSystemKey(G1Point[] memory tau1, G2Point[] memory tau2) public {
         SystemKey memory pk;
@@ -579,14 +585,6 @@ contract Verification
         G1Point memory y1G = g1mul(OwnerKey.pk, VKoDLEQ.c);
         G1Point memory pt1 =  g1add(gG, y1G);
 
-        if ((VKoDLEQ.a1.X != pt1.X) || (VKoDLEQ.a1.Y!= pt1.Y))
-        //if ((VKoDLEQ.a1.X != pt1.X) || (VKoDLEQ.a1.Y != pt1.Y))
-        //|| (VKoDLEQ.a2.X[0] != pt2.X[0]) || (VKoDLEQ.a2.X[1] != pt2.X[1]) || (VKoDLEQ.a2.Y[0] != pt2.Y[0]) || (VKoDLEQ.a2.Y[1] != pt2.Y[1]) )
-        {
-            VKResult.push(false);
-        }
-        VKResult.push(true);
-
         G2Point memory hG;
         G2Point memory y2G;
         G2Point memory pt2;
@@ -594,47 +592,73 @@ contract Verification
         (hG.X[0],hG.X[1],hG.Y[0],hG.Y[1]) = ECTwistMul(VKoDLEQ.z,PK[0].Tau2.X[0],PK[0].Tau2.X[1],PK[0].Tau2.Y[0],PK[0].Tau2.Y[1]);
         (y2G.X[0],y2G.X[1],y2G.Y[0],y2G.Y[1]) = ECTwistMul(VKoDLEQ.c,OwnerKey.vk.X[0],OwnerKey.vk.X[1],OwnerKey.vk.Y[0],OwnerKey.vk.Y[1]);
         (pt2.X[0],pt2.X[1],pt2.Y[0],pt2.Y[1]) = ECTwistAdd(hG.X[0],hG.X[1],hG.Y[0],hG.Y[1],y2G.X[0],y2G.X[1],y2G.Y[0],y2G.Y[1]);
+
+        if ((VKoDLEQ.a1.X != pt1.X) || (VKoDLEQ.a1.Y != pt1.Y)|| (VKoDLEQ.a2.X[0] != pt2.X[0]) || 
+        (VKoDLEQ.a2.X[1] != pt2.X[1]) || (VKoDLEQ.a2.Y[0] != pt2.Y[0]) || (VKoDLEQ.a2.Y[1] != pt2.Y[1]) )
+        {
+            VKResult.push(false);
+        }
+        VKResult.push(true);
   
     }
 
-    function GetVKoResult() public view returns (bool[] memory) {
+    function VKuVerify() public payable
+    {
+        G1Point memory gG = g1mul(PK[0].Tau1, VKuDLEQ.z);
+        G1Point memory y1G = g1mul(UserKey.pk, VKuDLEQ.c);
+        G1Point memory pt1 =  g1add(gG, y1G);
+
+        G2Point memory hG;
+        G2Point memory y2G;
+        G2Point memory pt2;
+
+        (hG.X[0],hG.X[1],hG.Y[0],hG.Y[1]) = ECTwistMul(VKuDLEQ.z,PK[0].Tau2.X[0],PK[0].Tau2.X[1],PK[0].Tau2.Y[0],PK[0].Tau2.Y[1]);
+        (y2G.X[0],y2G.X[1],y2G.Y[0],y2G.Y[1]) = ECTwistMul(VKuDLEQ.c,UserKey.vk.X[0],UserKey.vk.X[1],UserKey.vk.Y[0],UserKey.vk.Y[1]);
+        (pt2.X[0],pt2.X[1],pt2.Y[0],pt2.Y[1]) = ECTwistAdd(hG.X[0],hG.X[1],hG.Y[0],hG.Y[1],y2G.X[0],y2G.X[1],y2G.Y[0],y2G.Y[1]);
+
+        if ((VKuDLEQ.a1.X != pt1.X) || (VKuDLEQ.a1.Y != pt1.Y)|| (VKuDLEQ.a2.X[0] != pt2.X[0]) || 
+        (VKuDLEQ.a2.X[1] != pt2.X[1]) || (VKuDLEQ.a2.Y[0] != pt2.Y[0]) || (VKuDLEQ.a2.Y[1] != pt2.Y[1]) )
+        {
+            VKResult.push(false);
+        }
+        VKResult.push(true);
+    }
+
+    function GetVKResult() public view returns (bool[] memory) {
         return VKResult;
     }
 
-    uint256 X0;
-    uint256 X1;
-    uint256 Y0;
-    uint256 Y1;
-/*
-    function TestECTwistAdd() public returns (uint256,uint256,uint256,uint256) {
-        (X0,X1,Y0,Y1) = ECTwistAdd(1,2,3,4,5,6,7,8);
-
-        return (X0,X1,Y0,Y1);
-    }
-
-    function GetTestAdd()public view returns(uint256,uint256,uint256,uint256){
-        return (X0,X1,Y0,Y1);
-    }
-*/
-
-    function TestECTwistMul() public returns (uint256,uint256,uint256,uint256) {
-        (X0,X1,Y0,Y1) = ECTwistMul(5,1,2,3,4);
-
-        return (X0,X1,Y0,Y1);
-    }
-
-    function GetTestMul()public view returns(uint256,uint256,uint256,uint256){
-        return (X0,X1,Y0,Y1);
-    }
-
-/*   
-
-    function UploadCiphertext(G1Point memory c0, G1Point memory c1) public {
+    function UploadCiphertext(G2Point memory c0, string memory c1) public {
         ciphertext.C0 = c0;
         ciphertext.C1 = c1;
     }
 
+    function UploadReKeys(G1Point[] memory rks0, G1Point[] memory rks1) public {
+        ReKey memory rk;
+        for (uint i = 0; i < rks0.length; i++) {
+            rk.RK0 = rks0[i];
+            rk.RK1 = rks1[i];
+            ReKeys.push(rk);
+        }
+    }
 
+    function UploadReKeysProof(G1Point memory commitment, G1Point[] memory witness, G1Point[] memory a1, G1Point[] memory a2,uint256[] memory c, uint256[] memory z)public{
+        Commitment=commitment;
+        G1DLEQProof memory prf;
+        ReKeyProof memory proof;
+        for (uint i = 0; i < witness.length; i++) {
+            prf.a1=a1[i];
+            prf.a2=a2[i];
+            prf.c=c[i];
+            prf.z=z[i];
+            proof.Witness = witness[i];
+            proof.ShareDLEQ = prf;
+            ReKeysProof.push(proof);
+        }
+    }
+
+
+/*   
     function UploadGs(G1Point[] memory gs) public {
         for (uint i = 0; i < gs.length; i++) {
             Gs.push(gs[i]);
