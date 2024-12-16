@@ -41,7 +41,7 @@ Version: 0.8.25-develop
 2. start ganache
 
     ```bash
-    ganache --mnemonic "PRE" -l 90071992547 -e 1000
+    ganache --mnemonic "PRE" -l 90071992547 -e 100000000
     ```
 
 3. Compile the smart contract code
