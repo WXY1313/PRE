@@ -32,7 +32,7 @@ Version: 0.8.25-develop
 
 # How to run
 
-1. Generate private keys to generate the `.env` file
+1. Generate private keys to generate the `.env` file in different Linux os or Mac os
 
     ```bash(Linux os)
     bash genPrvKey_Linux.sh
