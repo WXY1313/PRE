@@ -553,7 +553,7 @@ contract Verification
 		return pairing(p1, p2);
 	}
 
-    function G1DLEQVerify(G1Point memory g, G1Point memory y1, G1Point memory a1, G1Point memory h, G1Point memory y2, G1Point memory a2, uint256 c, uint256 z) public payable returns (bool)
+    function DLEQVerify(G1Point memory g, G1Point memory y1, G1Point memory a1, G1Point memory h, G1Point memory y2, G1Point memory a2, uint256 c, uint256 z) public payable returns (bool)
     {
         G1Point memory gG = g1mul(g, z);
         G1Point memory y1G = g1mul(y1, c);
@@ -660,19 +660,6 @@ contract Verification
         	}
     }
 
-    function UploadVKoDLEQ(G1Point memory a1, G2Point memory a2,uint256 c, uint256 z)public{
-        VKoDLEQ.a1=a1;
-        VKoDLEQ.a2=a2;
-        VKoDLEQ.c=c;
-        VKoDLEQ.z=z;
-    }
-
-    function UploadVKuDLEQ(G1Point memory a1, G2Point memory a2,uint256 c, uint256 z)public{
-        VKuDLEQ.a1=a1;
-        VKuDLEQ.a2=a2;
-        VKuDLEQ.c=c;
-        VKuDLEQ.z=z;
-    }
 
     function VKoVerify() public payable
     {
@@ -745,7 +732,7 @@ contract Verification
             if (pairingProd2(left, PK[0].Tau2, g1neg(ReKeysProof[i].Witness), right))
             {
                 base = g1add(OwnerKey.pk,g1add(DRsKey[i],UserKey.pk));
-                if (G1DLEQVerify(PK[0].Tau1,ReKeys[i].RK0,ReKeysProof[i].ShareDLEQ.a1,base,ReKeys[i].RK1,ReKeysProof[i].ShareDLEQ.a2,ReKeysProof[i].ShareDLEQ.c,ReKeysProof[i].ShareDLEQ.z)){
+                if (DLEQVerify(PK[0].Tau1,ReKeys[i].RK0,ReKeysProof[i].ShareDLEQ.a1,base,ReKeys[i].RK1,ReKeysProof[i].ShareDLEQ.a2,ReKeysProof[i].ShareDLEQ.c,ReKeysProof[i].ShareDLEQ.z)){
                     ReKeysResult.push(true);
                 }
             }

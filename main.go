@@ -164,22 +164,6 @@ func main() {
 	}
 	fmt.Printf("UploadOwnerKey Gas used: %d\n", receipt1.GasUsed)
 
-	//Generate vko's DLEQ proof: DLEQProof(g1,pko,g2,vko,sko)
-	var prf_sko DLEQProofG1_G2
-	c, z, rg, rh, _ := DLEQ.DLEQProofG1_G2(PK.Tau1[0], PK.Tau2[0], pko, vko, sko)
-	prf_sko.C = c
-	prf_sko.Z = z
-	prf_sko.RG = rg
-	prf_sko.RH = rh
-	//Upload vko's DLEQ proof on the blockchain
-	auth2 := utils.Transact(client, privatekey, big.NewInt(0))
-	tx2, _ := Contract.UploadVKoDLEQ(auth2, Convert.G1ToG1Point(prf_sko.RG), Convert.G2ToG2Point(prf_sko.RH), prf_sko.C, prf_sko.Z)
-	receipt2, err := bind.WaitMined(context.Background(), client, tx2)
-	if err != nil {
-		log.Fatalf("Tx receipt failed: %v", err)
-	}
-	fmt.Printf("UploadVKoDLEQ Gas used: %d\n", receipt2.GasUsed)
-
 	//fmt.Printf("The DLEQ proof of vko is %v\n", prf_sko)
 	//KeyGen_u(off-chain)
 	//The key pair of data user
@@ -195,22 +179,6 @@ func main() {
 	}
 	fmt.Printf("UploadUserKey Gas used: %d\n", receipt3.GasUsed)
 
-	//Generate vku's DLEQ proof:DLEQProof(g1,pku,g2,vku,sku)
-	var prf_sku DLEQProofG1_G2
-	c, z, rg, rh, _ = DLEQ.DLEQProofG1_G2(PK.Tau1[0], PK.Tau2[0], pku, vku, sku)
-	prf_sku.C = c
-	prf_sku.Z = z
-	prf_sku.RG = rg
-	prf_sku.RH = rh
-	//fmt.Printf("The DLEQ proof of vku is %v\n", prf_sku)
-	//Upload vku's DLEQ proof on the blockchain
-	auth4 := utils.Transact(client, privatekey, big.NewInt(0))
-	tx4, _ := Contract.UploadVKuDLEQ(auth4, Convert.G1ToG1Point(prf_sku.RG), Convert.G2ToG2Point(prf_sku.RH), prf_sku.C, prf_sku.Z)
-	receipt4, err := bind.WaitMined(context.Background(), client, tx4)
-	if err != nil {
-		log.Fatalf("Tx receipt failed: %v", err)
-	}
-	fmt.Printf("UploadVKuDLEQ Gas used: %d\n", receipt4.GasUsed)
 	//KeyGen_DR(off-chain)
 	//The key pair of data regulators
 	sk := make([]*big.Int, numShares)
@@ -367,16 +335,6 @@ func main() {
 	}
 	fmt.Printf("UploadReKeysProof Gas used: %d\n", receipt10.GasUsed)
 
-	//ReKeyVerify: Verify the corresponding proof of ReKey(off-chain)
-	// for i := 0; i < numShares; i++ {
-	// 	x := big.NewInt(int64(i + 1))
-	// 	if KZG.Verify(PK, Commit, witness[i], x, ReKey.RK0[i]) == true && DLEQ.VerifyG1(prf_si[i].C, prf_si[i].Z, PK.Tau1[0], new(bn256.G1).Add(pko, new(bn256.G1).Add(pk[i], pku)), ReKey.RK0[i], ReKey.RK1[i], prf_si[i].RG, prf_si[i].RH) == nil {
-	// 		fmt.Printf("The index %v of re-encrypted key shares passes the check!\n", i)
-	// 	} else {
-	// 		fmt.Printf("The index %v of re-encrypted key shares fails to pass the check!\n", i)
-	// 	}
-	// }
-
 	auth11 := utils.Transact(client, privatekey, big.NewInt(0))
 	tx11, _ := Contract.ReKeysVerify(auth11)
 	receipt11, err := bind.WaitMined(context.Background(), client, tx11)
@@ -413,24 +371,6 @@ func main() {
 	}
 	fmt.Printf("UploadReCiphertext Gas used: %d\n", receipt12.GasUsed)
 
-	// //Verify re-encrypted ciphertext(off-chain)
-	// var I []*big.Int
-	// for i := 0; i < numShares; i++ {
-	// 	e1 := bn256.Pair(ReCipher.C3[i], PK.Tau2[0])
-	// 	e2 := bn256.Pair(ReCipher.C2[i], new(bn256.G2).Add(vko, vku))
-	// 	if e1.String() == e2.String() {
-	// 		fmt.Printf("The index %v of ReCipher passes the check!\n", i)
-	// 		x := big.NewInt(int64(i + 1))
-	// 		I = append(I, x)
-	// 	} else {
-	// 		fmt.Printf("The index %v of ReCipher fails to pass the check!\n", i)
-	// 	}
-	// 	if len(I) == threshold+1 {
-	// 		break
-	// 	}
-	// }
-	// fmt.Printf("The index of correct re-encrypted ciphertext shares is %v\n", I)
-	//Verify re-encrypted ciphertext(on-chain)
 	auth13 := utils.Transact(client, privatekey, big.NewInt(0))
 	tx13, _ := Contract.ReCipherVerify(auth13)
 	receipt13, err := bind.WaitMined(context.Background(), client, tx13)
