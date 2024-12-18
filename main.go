@@ -133,18 +133,31 @@ func main() {
 	for i := 0; i < numShares; i++ {
 		PKTau1[i] = Convert.G1ToG1Point(PK.Tau1[i])
 		PKTau2[i] = Convert.G2ToG2Point(PK.Tau2[i])
-		PKG2i[i] = Convert.G2ToG2Point(new(bn256.G2).Add(PK.Tau2[1], new(bn256.G2).Neg(new(bn256.G2).ScalarBaseMult(big.NewInt(int64(i+1))))))
-		//PKG2i[i] = Convert.G2ToG2Point(new(bn256.G2).Neg(new(bn256.G2).ScalarBaseMult(big.NewInt(int64(i + 1)))))
+		//PKG2i[i] = Convert.G2ToG2Point(new(bn256.G2).Add(PK.Tau2[1], new(bn256.G2).Neg(new(bn256.G2).ScalarBaseMult(big.NewInt(int64(i+1))))))
+		PKG2i[i] = Convert.G2ToG2Point(new(bn256.G2).Neg(new(bn256.G2).ScalarBaseMult(big.NewInt(int64(i + 1)))))
 	}
 
+	fmt.Printf("\n\nThe result of G2i on the off-chain is %v\n", PKG2i)
+
 	auth0 := utils.Transact(client, privatekey, big.NewInt(0))
-	tx0, _ := Contract.UploadSystemKey(auth0, PKTau1, PKTau2, PKG2i)
+	tx0, _ := Contract.UploadSystemKey(auth0, PKTau1, PKTau2)
 
 	receipt0, err := bind.WaitMined(context.Background(), client, tx0)
 	if err != nil {
 		log.Fatalf("Tx receipt failed: %v", err)
 	}
 	fmt.Printf("UploadSystemKey Gas used: %d\n", receipt0.GasUsed)
+
+	auth22 := utils.Transact(client, privatekey, big.NewInt(0))
+	tx22, _ := Contract.TestG2i(auth22)
+	receipt22, err := bind.WaitMined(context.Background(), client, tx22)
+	if err != nil {
+		log.Fatalf("Tx receipt failed: %v", err)
+	}
+	fmt.Printf("Test Gas used: %d\n", receipt22.GasUsed)
+
+	Result, _ := Contract.GetTest(&bind.CallOpts{})
+	fmt.Printf("\n\nThe result of G2i on the on-chain is %v\n", Result)
 
 	//TestResult, _ := Contract.TestReturn(&bind.CallOpts{})
 	//fmt.Printf("Test result is: %v\n", TestResult)
@@ -262,6 +275,7 @@ func main() {
 
 	//Generate RK(off-chain)
 	var ReKey RK
+
 	ReKey0 := make([]*bn256.G1, numShares)
 	ReKey1 := make([]*bn256.G1, numShares)
 	Base := make([]*bn256.G1, numShares)
@@ -314,12 +328,15 @@ func main() {
 	//fmt.Printf("The DLEQ proof of re-encrypted key shares are %v\n", prf_si)
 
 	//Upload corresponding proofs of re-encrypted key shares.
+	I := make([]*big.Int, numShares)
 	w := make([]contract.VerificationG1Point, numShares)
 	a1 := make([]contract.VerificationG1Point, numShares)
 	a2 := make([]contract.VerificationG1Point, numShares)
 	cc := make([]*big.Int, numShares)
 	zz := make([]*big.Int, numShares)
 	for i := 0; i < numShares; i++ {
+		x := big.NewInt(int64(i + 1))
+		I[i] = x
 		a1[i] = Convert.G1ToG1Point(prf_si[i].RG)
 		a2[i] = Convert.G1ToG1Point(prf_si[i].RH)
 		cc[i] = prf_si[i].C
@@ -328,7 +345,7 @@ func main() {
 	}
 
 	auth10 := utils.Transact(client, privatekey, big.NewInt(0))
-	tx10, _ := Contract.UploadReKeysProof(auth10, Convert.G1ToG1Point(Commit), w, a1, a2, cc, zz)
+	tx10, _ := Contract.UploadReKeysProof(auth10, I, Convert.G1ToG1Point(Commit), w, a1, a2, cc, zz)
 	receipt10, err := bind.WaitMined(context.Background(), client, tx10)
 	if err != nil {
 		log.Fatalf("Tx receipt failed: %v", err)

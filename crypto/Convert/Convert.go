@@ -54,7 +54,6 @@ func G2ToG2Point(point *bn256.G2) contract.VerificationG2Point {
 }
 
 func G2PointToG2(g2point contract.VerificationG2Point) *bn256.G2 {
-	// 将 x 和 y 转换为字节数组
 	// 将 X 和 Y 中的每个元素转换为字节数组
 	x1Bytes := g2point.X[0].Bytes()
 	x2Bytes := g2point.X[1].Bytes()

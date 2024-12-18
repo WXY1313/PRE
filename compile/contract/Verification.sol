@@ -94,9 +94,10 @@ contract Verification
 
     
     //Operation in group G2
- uint256 internal constant FIELD_MODULUS = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47;
+    uint256 internal constant FIELD_MODULUS = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47;
     uint256 internal constant TWISTBX = 0x2b149d40ceb8aaae81be18991be06ac3b5b4c5e559dbefa33267e6dc24a138e5;
     uint256 internal constant TWISTBY = 0x9713b03af0fed4cd2cafadeed8fdf4a74fa084e52d1852e4a2bd0685c315d2;
+    //266929791119991161246907387137283842545076965332900288569378510910307636690
     uint internal constant PTXX = 0;
     uint internal constant PTXY = 1;
     uint internal constant PTYX = 2;
@@ -231,6 +232,17 @@ contract Verification
      * @notice Get the field modulus
      * @return The field modulus
      */
+
+    function ECTwistNeg(uint256 pt1xx, uint256 pt1xy, uint256 pt1yx, uint256 pt1yy) pure internal returns (uint256, uint256,uint256, uint256) {
+		// The prime q in the base field F_q for G2
+		uint q = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
+		if (pt1xx == 0 && pt1xy == 0 && pt1yx == 0 && pt1yy == 0)
+			return (0, 0, 0, 0);
+		return (pt1xx,pt1xy, q - (pt1yx % q), q - (pt1yy % q));
+	}
+
+
+
     function GetFieldModulus() public pure returns (uint256) {
         return FIELD_MODULUS;
     }
@@ -570,12 +582,9 @@ contract Verification
         return true;
     }
 
-
-
     struct SystemKey {
 	    G1Point Tau1;
-	    G2Point Tau2;  
-        G2Point G2i;    	
+	    G2Point Tau2;   	
     }
 
     struct UKey {
@@ -631,15 +640,14 @@ contract Verification
     ReKeyProof[] ReKeysProof;
     bool[] ReKeysResult;
     ReCipher[] reciphertexts;
-    uint[] index;
+    uint256[] index;
 
     
-    function UploadSystemKey(G1Point[] memory tau1, G2Point[] memory tau2, G2Point[] memory g2i) public {
+    function UploadSystemKey(G1Point[] memory tau1, G2Point[] memory tau2) public {
         SystemKey memory pk;
     	for (uint i = 0; i < tau1.length; i++) {
             pk.Tau1=tau1[i];
             pk.Tau2=tau2[i];
-            pk.G2i=g2i[i];
             PK.push(pk);
         }
     }
@@ -703,7 +711,10 @@ contract Verification
         }
     }
 
-    function UploadReKeysProof(G1Point memory commitment, G1Point[] memory witness, G1Point[] memory a1, G1Point[] memory a2,uint256[] memory c, uint256[] memory z)public{
+    function UploadReKeysProof(uint256[] memory I, G1Point memory commitment, G1Point[] memory witness, G1Point[] memory a1, G1Point[] memory a2,uint256[] memory c, uint256[] memory z)public{
+        for (uint i=0;i<I.length;i++){
+            index.push(I[i]);
+        }
         Commitment=commitment;
         G1DLEQProof memory prf;
         ReKeyProof memory proof;
@@ -718,17 +729,40 @@ contract Verification
         }
     }
 
+    G2Point pt22;
+
+    function TestG2i()public
+    {
+        /*
+        for(uint256 i=0;i<ReKeysProof.length; i++){
+            (g2i.X[1],g2i.X[0],g2i.Y[1],g2i.Y[0]) = ECTwistMul(_modInv(index[i],FIELD_MODULUS),PK[0].Tau2.X[1],PK[0].Tau2.X[0],PK[0].Tau2.Y[1],PK[0].Tau2.Y[0]);
+            pt2.push(g2i);
+        }
+        */
+        G2Point memory g2i;
+        (g2i.X[1],g2i.X[0],g2i.Y[1],g2i.Y[0]) = ECTwistMul(uint256(2),PK[0].Tau2.X[1],PK[0].Tau2.X[0],PK[0].Tau2.Y[1],PK[0].Tau2.Y[0]);
+        (g2i.X[1],g2i.X[0],g2i.Y[1],g2i.Y[0]) = ECTwistNeg(g2i.X[1],g2i.X[0],g2i.Y[1],g2i.Y[0]);
+        pt22=g2i;
+    }
+
+    function GetTest()public view returns(G2Point memory){
+        return pt22;
+    }
+
     function ReKeysVerify()public{
         G1Point memory base;
         G1Point memory left;
         G2Point memory g2i;
         G2Point memory right;
+
     
         for (uint256 i = 0; i < ReKeysProof.length; i++) 
         {
+            //Verify e(commitment/g^{s_i},g2)e((witness[i])^{-1},g2^{\tau}-g2^i)==1
             left = g1add(Commitment,g1neg(ReKeys[i].RK0));
-            //(right.X[1],right.X[0],right.Y[1],right.Y[0]) = ECTwistAdd(PK[1].Tau2.X[1],PK[1].Tau2.X[0],PK[1].Tau2.Y[1],PK[1].Tau2.Y[0],PK[i].G2i.X[1],PK[i].G2i.X[0],PK[i].G2i.Y[1],PK[i].G2i.Y[0]);
-            right=PK[i].G2i;
+            (g2i.X[1],g2i.X[0],g2i.Y[1],g2i.Y[0]) = ECTwistMul(uint256(index[i]),PK[0].Tau2.X[1],PK[0].Tau2.X[0],PK[0].Tau2.Y[1],PK[0].Tau2.Y[0]);
+            (g2i.X[1],g2i.X[0],g2i.Y[1],g2i.Y[0])=ECTwistNeg(g2i.X[1],g2i.X[0],g2i.Y[1],g2i.Y[0]);
+            (right.X[1],right.X[0],right.Y[1],right.Y[0]) = ECTwistAdd(PK[1].Tau2.X[1],PK[1].Tau2.X[0],PK[1].Tau2.Y[1],PK[1].Tau2.Y[0],g2i.X[1],g2i.X[0],g2i.Y[1],g2i.Y[0]);
             if (pairingProd2(left, PK[0].Tau2, g1neg(ReKeysProof[i].Witness), right))
             {
                 base = g1add(OwnerKey.pk,g1add(DRsKey[i],UserKey.pk));
@@ -757,9 +791,6 @@ contract Verification
     }
 
     function ReCipherVerify()public{
-        for (uint i=0;i<reciphertexts.length;i++){
-            index.push(i+1);
-        }
         for (uint i=0;i<reciphertexts.length;i++){
             if (!pairingProd3(g1neg(reciphertexts[i].C3),PK[0].Tau2,reciphertexts[i].C2,OwnerKey.vk,reciphertexts[i].C2,UserKey.vk)){
                 require(i < index.length, "Index out of bounds");
