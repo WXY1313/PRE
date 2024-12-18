@@ -729,26 +729,6 @@ contract Verification
         }
     }
 
-    G2Point pt22;
-
-    function TestG2i()public
-    {
-        /*
-        for(uint256 i=0;i<ReKeysProof.length; i++){
-            (g2i.X[1],g2i.X[0],g2i.Y[1],g2i.Y[0]) = ECTwistMul(_modInv(index[i],FIELD_MODULUS),PK[0].Tau2.X[1],PK[0].Tau2.X[0],PK[0].Tau2.Y[1],PK[0].Tau2.Y[0]);
-            pt2.push(g2i);
-        }
-        */
-        G2Point memory g2i;
-        (g2i.X[1],g2i.X[0],g2i.Y[1],g2i.Y[0]) = ECTwistMul(uint256(2),PK[0].Tau2.X[1],PK[0].Tau2.X[0],PK[0].Tau2.Y[1],PK[0].Tau2.Y[0]);
-        (g2i.X[1],g2i.X[0],g2i.Y[1],g2i.Y[0]) = ECTwistNeg(g2i.X[1],g2i.X[0],g2i.Y[1],g2i.Y[0]);
-        pt22=g2i;
-    }
-
-    function GetTest()public view returns(G2Point memory){
-        return pt22;
-    }
-
     function ReKeysVerify()public{
         G1Point memory base;
         G1Point memory left;
@@ -770,7 +750,8 @@ contract Verification
                     ReKeysResult.push(true);
                 }
             }
-            else{
+            else
+            {
                 ReKeysResult.push(false);
             }
         }
@@ -810,4 +791,63 @@ contract Verification
     function GetReCipher() public view returns (G2Point memory, string memory,ReCipher[] memory){
         return (ciphertext.C0,ciphertext.C1,reciphertexts);
     }
+
+ /*   
+    G1Point point1;
+
+    function TestG1Add(G1Point memory pt1, G1Point memory pt2) public{
+        point1=g1add(pt1,pt2);
+    }
+
+    function TestG1Mul(uint256 value, G1Point memory pt1) public{
+        point1=g1mul(pt1, value);
+    }
+
+    function TestG1Neg(G1Point memory pt1) public{
+        point1=g1neg(pt1);
+    }
+
+    function TestG1AddNO() public{
+        point1=g1add(PK[0].Tau1,PK[1].Tau1);
+    }
+
+    function TestG1MulNO() public{
+        point1=g1mul(PK[0].Tau1, uint256(1));
+    }
+
+    function TestG1NegNO() public{
+        point1=g1neg(PK[0].Tau1);
+    }
+
+    G2Point point;
+
+    function TestG2Add(G2Point memory pt1, G2Point memory pt2) public{
+        (point.X[1],point.X[0],point.Y[1],point.Y[0])=ECTwistAdd(pt1.X[1],pt1.X[0],pt1.Y[1],pt1.Y[0],pt2.X[1],pt2.X[0],pt2.Y[1],pt2.Y[0]);
+    }
+
+    function TestG2Mul(uint256 value, G2Point memory pt1) public{
+        (point.X[1],point.X[0],point.Y[1],point.Y[0])=ECTwistMul(value,pt1.X[1],pt1.X[0],pt1.Y[1],pt1.Y[0]);
+    }
+
+    function TestG2Neg(G2Point memory pt1) public{
+        (point.X[1],point.X[0],point.Y[1],point.Y[0])=ECTwistNeg(pt1.X[1],pt1.X[0],pt1.Y[1],pt1.Y[0]);
+    }
+
+    function TestG2AddNO() public{
+        (point.X[1],point.X[0],point.Y[1],point.Y[0])=ECTwistAdd(PK[0].Tau2.X[1],PK[0].Tau2.X[0],PK[0].Tau2.Y[1],PK[0].Tau2.Y[0],PK[1].Tau2.X[1],PK[1].Tau2.X[0],PK[1].Tau2.Y[1],PK[1].Tau2.Y[0]);
+    }
+
+    function TestG2MulNO() public{
+        (point.X[1],point.X[0],point.Y[1],point.Y[0])=ECTwistMul(uint256(1),PK[0].Tau2.X[1],PK[0].Tau2.X[0],PK[0].Tau2.Y[1],PK[0].Tau2.Y[0]);
+    }
+
+    function TestG2NegNO() public{
+        (point.X[1],point.X[0],point.Y[1],point.Y[0])=ECTwistNeg(PK[0].Tau2.X[1],PK[0].Tau2.X[0],PK[0].Tau2.Y[1],PK[0].Tau2.Y[0]);
+    }
+
+    function GetTest() public view returns (G2Point memory){
+        return point;
+    }
+*/
+
 }
