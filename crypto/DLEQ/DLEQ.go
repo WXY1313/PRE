@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"errors"
+
 	//"fmt"
 	"math/big"
 	//"strings"
@@ -18,7 +19,6 @@ var Q, _ = new(big.Int).SetString(
 // R is the mod of the finite field
 var R, _ = new(big.Int).SetString(
 	"21888242871839275222246405745257275088548364400416034343698204186575808495617", 10)
-
 
 func DLEQProofG1(G, H *bn256.G1, xG, xH *bn256.G1, x *big.Int) (c, z *big.Int, rG, rH *bn256.G1, err error) {
 	//生成承诺
@@ -102,5 +102,3 @@ func VerifyG1_G2(c, z *big.Int, G *bn256.G1, H *bn256.G2, xG *bn256.G1, xH *bn25
 	}
 	return nil
 }
-
-

@@ -1,0 +1,34 @@
+The gas test in different phase(n=5,t=3) 
+1)User Registration Gas Used: 984190 (UploadOwnerKey+UploadUserKey+UploadDRsKey+VKoVerify+VKuVerify)
+2)Sensitive Message Encryption Gas Used:499950(UploadCiphertext)
+3)Re-encrypted Key Generation Gas Used:2934324(UploadReKeys+UploadReKeysProof+ReKeysVerify)
+4)Data Ciphertext Re-encryption Gas Used:1391813(UploadReCipher+ReCipherVerify) 
+The gas test in different function(n=5,t=3)
+1)VKVerify(VKoVerify/VKuVerify):
+2)ReKeysVerify:
+3)ReCipherVerify:
+
+The time test(ms) in different phase(n=5,t=3)
+1)User Registration Time Used: 
+2)Sensitive Message Encryption Time Used:
+3)Re-encrypted Key Generation Time Used:
+4)Data Ciphertext Re-encryption Time Used:
+The time test(ms) in different function(n=5,t=3)
+1)VKVerify(VKoVerify/VKuVerify):
+2)ReKeysVerify:
+3)ReCipherVerify:
+
+Linear Relationship Gas Used(n=5,10,15,20,25,30,35,40,45,50;t=n/2 or t=2n/3)
+1)VKVerify(VKoVerify/VKuVerify):
+2)ReKeysVerify:
+3)ReCipherVerify:
+4)Obtain the decryption key:
+
+Linear Relationship Time Used(n=5,10,15,20,25,30,35,40,45,50;t=n/2 or t=2n/3)
+1)VKVerify(VKoVerify/VKuVerify):
+2)ReKeysVerify:
+3)ReCipherVerify:
+4)Obtain the decryption key:
+
+
+

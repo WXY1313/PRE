@@ -116,7 +116,7 @@ func main() {
 
 	//==========================================System Initialization===========================================//
 	// the number of key shares
-	numShares := 10
+	numShares := 5
 	// threshold value
 	threshold := numShares/2 + 1
 	//threshold := 2*numShares/3 + 1
@@ -137,7 +137,7 @@ func main() {
 		PKG2i[i] = Convert.G2ToG2Point(new(bn256.G2).Neg(new(bn256.G2).ScalarBaseMult(big.NewInt(int64(i + 1)))))
 	}
 
-	fmt.Printf("\n\nThe result of G2i on the off-chain is %v\n", PKG2i)
+	//fmt.Printf("\n\nThe result of G2i on the off-chain is %v\n", PKG2i)
 
 	auth0 := utils.Transact(client, privatekey, big.NewInt(0))
 	tx0, _ := Contract.UploadSystemKey(auth0, PKTau1, PKTau2)
@@ -221,6 +221,7 @@ func main() {
 
 	VKResult, _ := Contract.GetVKResult(&bind.CallOpts{})
 	fmt.Printf("The Verification results of vko and vku are %v\n", VKResult)
+	fmt.Printf("The total gas used in user registration phase is %v\n", receipt1.GasUsed+receipt3.GasUsed+receipt5.GasUsed+receipt6.GasUsed+receipt7.GasUsed)
 
 	//======================================Sensitive Message Encryption========================================//
 	//Data owner encrypts the sensitive message M which is the AES key.(off-chain)
@@ -244,6 +245,7 @@ func main() {
 		log.Fatalf("Tx receipt failed: %v", err)
 	}
 	fmt.Printf("UploadCiphertext Gas used: %d\n", receipt8.GasUsed)
+	fmt.Printf("The total gas used in sensitive message encryption phase is %v\n", receipt8.GasUsed)
 
 	//======================================Re-encrypted Key Generation========================================//
 
@@ -351,6 +353,7 @@ func main() {
 
 	ReKeyResult, _ := Contract.GetReKeysResult(&bind.CallOpts{})
 	fmt.Printf("The Verification result of re-encrytped key shares is %v\n", ReKeyResult)
+	fmt.Printf("The total gas used in re-encrypted key generation phase is %v\n", receipt9.GasUsed+receipt10.GasUsed+receipt11.GasUsed)
 	//======================================Data Ciphertext Re-encryption========================================//
 	//Compute re-encrypted ciphertext(off-chain)
 	//var ReCipher RC
@@ -389,6 +392,7 @@ func main() {
 	fmt.Printf("The correct re-ciphertext index is %v\n", index)
 
 	C0, C1, reciphertext, _ := Contract.GetReCipher(&bind.CallOpts{})
+	fmt.Printf("The total gas used in data ciphertext re-encryption phase is %v\n", receipt12.GasUsed+receipt13.GasUsed)
 
 	//===================================Re-encrypted Ciphertext Decryption======================================//
 	//Data onwer decrypts the data ciphertext(off-chain)
@@ -406,9 +410,19 @@ func main() {
 	fmt.Printf("The index set is %v\n", index)
 	KeyShares := make([]*bn256.G1, threshold+1)
 	for i := 0; i < len(index); i++ {
-		KeyShares[i] = new(bn256.G1).Add(Convert.G1PointToG1(reciphertext[i].C3), new(bn256.G1).Neg(new(bn256.G1).ScalarMult(Convert.G1PointToG1(reciphertext[i].C2), sku)))
+		RecipherC3, errC3 := Convert.G1PointToG1(reciphertext[i].C3)
+		if errC3 != nil {
+			log.Fatalf("RecipherC3 convert failed: %v", errC3)
+		}
+		RecipherC2, errC2 := Convert.G1PointToG1(reciphertext[i].C2)
+		if errC2 != nil {
+			log.Fatalf("RecipherC2 convert failed: %v", errC2)
+		}
+		KeyShares[i] = new(bn256.G1).Add(RecipherC3, new(bn256.G1).Neg(new(bn256.G1).ScalarMult(RecipherC2, sku)))
 	}
 	Key := recoverKey(KeyShares, index, threshold)
-	DU_M := ElGamal.EGDecrypt(Convert.G2PointToG2(C0), Convert.StringToGT(C1), Key)
+	RecipherC0, _ := Convert.G2PointToG2(C0)
+	RecipherC1, _ := Convert.StringToGT(C1)
+	DU_M := ElGamal.EGDecrypt(RecipherC0, RecipherC1, Key)
 	fmt.Printf("The decryption result of data user is %v\n", DU_M)
 }
