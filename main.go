@@ -9,6 +9,7 @@ import (
 
 	"fmt"
 	"math/big"
+	"time"
 
 	bn256 "github.com/ethereum/go-ethereum/crypto/bn256/cloudflare"
 
@@ -116,10 +117,11 @@ func main() {
 
 	//==========================================System Initialization===========================================//
 	// the number of key shares
-	numShares := 5
+	numShares := 50
 	// threshold value
-	threshold := numShares/2 + 1
-	//threshold := 2*numShares/3 + 1
+	//threshold := numShares/2 + 1
+	threshold := 2*numShares/3 + 1
+	n := 10000
 
 	fmt.Printf("The number of shares is %v\n", numShares)
 	fmt.Printf("The threshold value is %v\n", threshold)
@@ -165,6 +167,17 @@ func main() {
 		log.Fatalf("Tx receipt failed: %v", err)
 	}
 	fmt.Printf("UploadOwnerKey Gas used: %d\n", receipt1.GasUsed)
+	//vko verify(on-chain)
+	auth6 := utils.Transact(client, privatekey, big.NewInt(0))
+	tx6, _ := Contract.VKoVerify(auth6)
+	receipt6, err := bind.WaitMined(context.Background(), client, tx6)
+	if err != nil {
+		log.Fatalf("Tx receipt failed: %v", err)
+	}
+	fmt.Printf("VKoVerify Gas used: %d\n", receipt6.GasUsed)
+
+	VKoResult, _ := Contract.GetVKoResult(&bind.CallOpts{})
+	fmt.Printf("The Verification results of vko is %v\n", VKoResult)
 
 	//fmt.Printf("The DLEQ proof of vko is %v\n", prf_sko)
 	//KeyGen_u(off-chain)
@@ -181,6 +194,16 @@ func main() {
 	}
 	fmt.Printf("UploadUserKey Gas used: %d\n", receipt3.GasUsed)
 
+	//vku verify(on-chain)
+	auth7 := utils.Transact(client, privatekey, big.NewInt(0))
+	tx7, _ := Contract.VKuVerify(auth7)
+	receipt7, err := bind.WaitMined(context.Background(), client, tx7)
+	if err != nil {
+		log.Fatalf("Tx receipt failed: %v", err)
+	}
+	fmt.Printf("VKuVerify Gas used: %d\n", receipt7.GasUsed)
+	VKuResult, _ := Contract.GetVKuResult(&bind.CallOpts{})
+	fmt.Printf("The Verification results of vku is %v\n", VKuResult)
 	//KeyGen_DR(off-chain)
 	//The key pair of data regulators
 	sk := make([]*big.Int, numShares)
@@ -200,27 +223,6 @@ func main() {
 	}
 	fmt.Printf("UploadDRsKey Gas used: %d\n", receipt5.GasUsed)
 
-	//VKVerify
-	//vko verify(on-chain)
-	auth6 := utils.Transact(client, privatekey, big.NewInt(0))
-	tx6, _ := Contract.VKoVerify(auth6)
-	receipt6, err := bind.WaitMined(context.Background(), client, tx6)
-	if err != nil {
-		log.Fatalf("Tx receipt failed: %v", err)
-	}
-	fmt.Printf("VKoVerify Gas used: %d\n", receipt6.GasUsed)
-
-	//vku verify(on-chain)
-	auth7 := utils.Transact(client, privatekey, big.NewInt(0))
-	tx7, _ := Contract.VKuVerify(auth7)
-	receipt7, err := bind.WaitMined(context.Background(), client, tx7)
-	if err != nil {
-		log.Fatalf("Tx receipt failed: %v", err)
-	}
-	fmt.Printf("VKuVerify Gas used: %d\n", receipt7.GasUsed)
-
-	VKResult, _ := Contract.GetVKResult(&bind.CallOpts{})
-	fmt.Printf("The Verification results of vko and vku are %v\n", VKResult)
 	fmt.Printf("The total gas used in user registration phase is %v\n", receipt1.GasUsed+receipt3.GasUsed+receipt5.GasUsed+receipt6.GasUsed+receipt7.GasUsed)
 
 	//======================================Sensitive Message Encryption========================================//
@@ -230,8 +232,16 @@ func main() {
 	m, _ := rand.Int(rand.Reader, Q)
 	//gT=e(g1,g2)
 	M := bn256.Pair(new(bn256.G1).ScalarBaseMult(m), new(bn256.G2).ScalarBaseMult(big.NewInt(int64(1))))
+	var Cipher *ElGamal.C
 	//fmt.Printf("The plaintext is %v\n", M)
-	Cipher := ElGamal.EGEncrypt(M, pko, secret)
+	starttime := time.Now().UnixMicro()
+	for i := 0; i < int(n); i++ {
+		Cipher = ElGamal.EGEncrypt(M, pko, secret)
+	}
+
+	endtime := time.Now().UnixMicro()
+	fmt.Printf("Sensitive Message Encryption Time Used is %v us\n", (endtime-starttime)/int64(n))
+
 	//fmt.Printf("The data ciphertext is %v\n", Cipher)
 
 	//Upload the data ciphertext on the blockchain
@@ -248,7 +258,6 @@ func main() {
 	fmt.Printf("The total gas used in sensitive message encryption phase is %v\n", receipt8.GasUsed)
 
 	//======================================Re-encrypted Key Generation========================================//
-
 	//Generate the polynomial coefficients(off-chain)
 	coefficients := make([]*big.Int, threshold)
 	coefficients[0] = secret
@@ -270,14 +279,44 @@ func main() {
 	ReKey0 := make([]*bn256.G1, numShares)
 	ReKey1 := make([]*bn256.G1, numShares)
 	Base := make([]*bn256.G1, numShares)
-	for i := 0; i < numShares; i++ {
-		ReKey0[i] = new(bn256.G1).ScalarMult(PK.Tau1[0], shares[i])
-		Base[i] = new(bn256.G1).Add(pko, new(bn256.G1).Add(pk[i], pku))
-		ReKey1[i] = new(bn256.G1).ScalarMult(Base[i], shares[i])
+
+	var Commit *bn256.G1
+	witness := make([]*bn256.G1, numShares)
+	prf_si := make([]DLEQProofG1, numShares)
+
+	starttime = time.Now().UnixMicro()
+	for j := 0; j < int(n); j++ {
+		for i := 0; i < numShares; i++ {
+			ReKey0[i] = new(bn256.G1).ScalarMult(PK.Tau1[0], shares[i])
+			Base[i] = new(bn256.G1).Add(pko, new(bn256.G1).Add(pk[i], pku))
+			ReKey1[i] = new(bn256.G1).ScalarMult(Base[i], shares[i])
+		}
+		ReKey.RK0 = ReKey0
+		ReKey.RK1 = ReKey1
+		//fmt.Printf("The re-encrypted key shares are %v\n", ReKey)
+
+		//Generate Proof including a KZG commitment, n part KZG witnesses, and n part DLEQ Proofs
+		//KZG commitment(off-chain)
+		Commit = KZG.Commit(PK, coefficients)
+		//fmt.Printf("The commitment is %v\n", Commit)
+		//KZG witness(off-chain)
+		for i := 0; i < numShares; i++ {
+			x := big.NewInt(int64(i + 1))
+			witness[i], _ = KZG.EvaluationProof(PK, coefficients, x, shares[i])
+		}
+		//fmt.Printf("The witness is %v\n", witness)
+		//DLEQ Proof(on-chain)
+		for i := 0; i < numShares; i++ {
+			_c, _z, _rg, _rh, _ := DLEQ.DLEQProofG1(PK.Tau1[0], Base[i], ReKey.RK0[i], ReKey.RK1[i], shares[i])
+			prf_si[i].C = _c
+			prf_si[i].Z = _z
+			prf_si[i].RG = _rg
+			prf_si[i].RH = _rh
+		}
+		//fmt.Printf("The DLEQ proof of re-encrypted key shares are %v\n", prf_si)
 	}
-	ReKey.RK0 = ReKey0
-	ReKey.RK1 = ReKey1
-	//fmt.Printf("The re-encrypted key shares are %v\n", ReKey)
+	endtime = time.Now().UnixMicro()
+	fmt.Printf("Re-encrypted Key Generation Time Used is %v us\n", (endtime-starttime)/int64(n))
 
 	//Upload re-encrypted key shares
 	RK0s := make([]contract.VerificationG1Point, numShares)
@@ -295,28 +334,6 @@ func main() {
 		log.Fatalf("Tx receipt failed: %v", err)
 	}
 	fmt.Printf("UploadReKeys Gas used: %d\n", receipt9.GasUsed)
-
-	//Generate Proof including a KZG commitment, n part KZG witnesses, and n part DLEQ Proofs
-	//KZG commitment(off-chain)
-	Commit := KZG.Commit(PK, coefficients)
-	//fmt.Printf("The commitment is %v\n", Commit)
-	//KZG witness(off-chain)
-	witness := make([]*bn256.G1, numShares)
-	for i := 0; i < numShares; i++ {
-		x := big.NewInt(int64(i + 1))
-		witness[i], _ = KZG.EvaluationProof(PK, coefficients, x, shares[i])
-	}
-	//fmt.Printf("The witness is %v\n", witness)
-	//DLEQ Proof(on-chain)
-	prf_si := make([]DLEQProofG1, numShares)
-	for i := 0; i < numShares; i++ {
-		_c, _z, _rg, _rh, _ := DLEQ.DLEQProofG1(PK.Tau1[0], Base[i], ReKey.RK0[i], ReKey.RK1[i], shares[i])
-		prf_si[i].C = _c
-		prf_si[i].Z = _z
-		prf_si[i].RG = _rg
-		prf_si[i].RH = _rh
-	}
-	//fmt.Printf("The DLEQ proof of re-encrypted key shares are %v\n", prf_si)
 
 	//Upload corresponding proofs of re-encrypted key shares.
 	I := make([]*big.Int, numShares)
@@ -352,28 +369,36 @@ func main() {
 	fmt.Printf("ReKeysVerify Gas used: %d\n", receipt11.GasUsed)
 
 	ReKeyResult, _ := Contract.GetReKeysResult(&bind.CallOpts{})
+	ReKeyResultIndex, _ := Contract.GetIndex(&bind.CallOpts{})
 	fmt.Printf("The Verification result of re-encrytped key shares is %v\n", ReKeyResult)
+	fmt.Printf("The index of correct re-encrytped key shares  is %v\n", ReKeyResultIndex)
 	fmt.Printf("The total gas used in re-encrypted key generation phase is %v\n", receipt9.GasUsed+receipt10.GasUsed+receipt11.GasUsed)
+
 	//======================================Data Ciphertext Re-encryption========================================//
 	//Compute re-encrypted ciphertext(off-chain)
 	//var ReCipher RC
-	c2 := make([]*bn256.G1, numShares)
 	c3 := make([]*bn256.G1, numShares)
-	Convertc2 := make([]contract.VerificationG1Point, numShares)
-	Convertc3 := make([]contract.VerificationG1Point, numShares)
-	for i := 0; i < numShares; i++ {
-		c2[i] = ReKey.RK0[i]
-		Convertc2[i] = Convert.G1ToG1Point(c2[i])
-		c3[i] = new(bn256.G1).Add(ReKey.RK1[i], new(bn256.G1).Neg(new(bn256.G1).ScalarMult(ReKey.RK0[i], sk[i])))
-		Convertc3[i] = Convert.G1ToG1Point(c3[i])
+
+	starttime = time.Now().UnixMicro()
+	for j := 0; j < int(n); j++ {
+		for i := 0; i < numShares; i++ {
+			c3[i] = new(bn256.G1).Add(ReKey.RK1[i], new(bn256.G1).Neg(new(bn256.G1).ScalarMult(ReKey.RK0[i], sk[i])))
+		}
 	}
+	endtime = time.Now().UnixMicro()
+	fmt.Printf("Data Ciphertext Re-encryption Time Used is %v us\n", (endtime-starttime)/int64(n))
+
 	// ReCipher.C0 = Cipher.C0
 	// ReCipher.C1 = Cipher.C1
 	// ReCipher.C2 = c2
 	// ReCipher.C3 = c3
 	//fmt.Printf("The re-encypted ciphertext is %v\n", ReCipher)
+	Convertc3 := make([]contract.VerificationG1Point, numShares)
+	for i := 0; i < numShares; i++ {
+		Convertc3[i] = Convert.G1ToG1Point(c3[i])
+	}
 	auth12 := utils.Transact(client, privatekey, big.NewInt(0))
-	tx12, _ := Contract.UploadReCipher(auth12, Convertc2, Convertc3)
+	tx12, _ := Contract.UploadReCipher(auth12, Convertc3)
 	receipt12, err := bind.WaitMined(context.Background(), client, tx12)
 	if err != nil {
 		log.Fatalf("Tx receipt failed: %v", err)
@@ -401,28 +426,35 @@ func main() {
 	fmt.Printf("The decryption result of data onwer is %v\n", DO_M)
 
 	// //Data user decrypts the re-encrypted ciphertext
+	var DU_M *bn256.GT
 	for i := 0; ; i++ {
-		index = index[:len(index)-1]
 		if len(index) == threshold+1 {
 			break
 		}
+		index = index[:len(index)-1]
 	}
 	fmt.Printf("The index set is %v\n", index)
 	KeyShares := make([]*bn256.G1, threshold+1)
-	for i := 0; i < len(index); i++ {
-		RecipherC3, errC3 := Convert.G1PointToG1(reciphertext[i].C3)
-		if errC3 != nil {
-			log.Fatalf("RecipherC3 convert failed: %v", errC3)
+
+	starttime = time.Now().UnixMicro()
+	for j := 0; j < int(n); j++ {
+		for i := 0; i < len(index); i++ {
+			RecipherC3, errC3 := Convert.G1PointToG1(reciphertext[i].C3)
+			if errC3 != nil {
+				log.Fatalf("RecipherC3 convert failed: %v", errC3)
+			}
+			RecipherC2, errC2 := Convert.G1PointToG1(reciphertext[i].C2)
+			if errC2 != nil {
+				log.Fatalf("RecipherC2 convert failed: %v", errC2)
+			}
+			KeyShares[i] = new(bn256.G1).Add(RecipherC3, new(bn256.G1).Neg(new(bn256.G1).ScalarMult(RecipherC2, sku)))
 		}
-		RecipherC2, errC2 := Convert.G1PointToG1(reciphertext[i].C2)
-		if errC2 != nil {
-			log.Fatalf("RecipherC2 convert failed: %v", errC2)
-		}
-		KeyShares[i] = new(bn256.G1).Add(RecipherC3, new(bn256.G1).Neg(new(bn256.G1).ScalarMult(RecipherC2, sku)))
+		Key := recoverKey(KeyShares, index, threshold)
+		RecipherC0, _ := Convert.G2PointToG2(C0)
+		RecipherC1, _ := Convert.StringToGT(C1)
+		DU_M = ElGamal.EGDecrypt(RecipherC0, RecipherC1, Key)
 	}
-	Key := recoverKey(KeyShares, index, threshold)
-	RecipherC0, _ := Convert.G2PointToG2(C0)
-	RecipherC1, _ := Convert.StringToGT(C1)
-	DU_M := ElGamal.EGDecrypt(RecipherC0, RecipherC1, Key)
+	endtime = time.Now().UnixMicro()
+	fmt.Printf("Re-encrypted Ciphertext Decryption Time Used is %v us\n", (endtime-starttime)/int64(n))
 	fmt.Printf("The decryption result of data user is %v\n", DU_M)
 }

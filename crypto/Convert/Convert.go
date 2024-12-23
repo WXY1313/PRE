@@ -43,6 +43,18 @@ func G1PointToG1(g1point contract.VerificationG1Point) (*bn256.G1, error) {
 	xBytes := g1point.X.Bytes()
 	yBytes := g1point.Y.Bytes()
 
+	// 检查字节数组的长度是否为32
+	if len(xBytes) != 32 {
+		xBytes = append([]byte{0x00}, xBytes...)
+		fmt.Errorf("xBytes length is not 32, got %d", len(xBytes))
+		//return nil, fmt.Errorf("xBytes length is not 32, got %d", len(xBytes))
+	}
+	if len(yBytes) != 32 {
+		yBytes = append([]byte{0x00}, yBytes...)
+		fmt.Errorf("yBytes length is not 32, got %d", len(yBytes))
+		//return nil, fmt.Errorf("yBytes length is not 32, got %d", len(yBytes))
+	}
+
 	// 将两个字节数组拼接起来
 	decodedBytes := append(xBytes, yBytes...)
 
@@ -96,6 +108,27 @@ func G2PointToG2(g2point contract.VerificationG2Point) (*bn256.G2, error) {
 	x2Bytes := g2point.X[1].Bytes()
 	y1Bytes := g2point.Y[0].Bytes()
 	y2Bytes := g2point.Y[1].Bytes()
+	// 检查字节数组的长度是否为32
+	if len(x1Bytes) != 32 {
+		x1Bytes = append([]byte{0x00}, x1Bytes...)
+		fmt.Errorf("xBytes length is not 32, got %d", len(x1Bytes))
+		//return nil, fmt.Errorf("xBytes length is not 32, got %d", len(xBytes))
+	}
+	if len(x1Bytes) != 32 {
+		x2Bytes = append([]byte{0x00}, x2Bytes...)
+		fmt.Errorf("xBytes length is not 32, got %d", len(x2Bytes))
+		//return nil, fmt.Errorf("xBytes length is not 32, got %d", len(xBytes))
+	}
+	if len(y1Bytes) != 32 {
+		y1Bytes = append([]byte{0x00}, y1Bytes...)
+		fmt.Errorf("yBytes length is not 32, got %d", len(y1Bytes))
+		//return nil, fmt.Errorf("yBytes length is not 32, got %d", len(yBytes))
+	}
+	if len(y2Bytes) != 32 {
+		y2Bytes = append([]byte{0x00}, y2Bytes...)
+		fmt.Errorf("yBytes length is not 32, got %d", len(y2Bytes))
+		//return nil, fmt.Errorf("yBytes length is not 32, got %d", len(yBytes))
+	}
 
 	// 将四个字节数组拼接成一个完整的字节数组
 	decodedBytes := append(x1Bytes, x2Bytes...)
