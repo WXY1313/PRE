@@ -1,7 +1,7 @@
 package Convert
 
 import (
-	"PRE/compile/contract"
+	contract "PRE/gen"
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
