@@ -28,7 +28,7 @@ Version: 0.8.25-develop
 * `compile/compile.sh`  The script file compiles solidity and generates go contract file.
 
 * `genPrvKey.sh`  The script file generates accounts and stores in the`.env` file.
-
+#########
 
 # How to run
 

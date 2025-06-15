@@ -1,16 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-// https://www.iacr.org/cryptodb/archive/2002/ASIACRYPT/50/50.pdf
-contract Verification
-{
-    uint256 constant FIELD_ORDER = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47;
-    uint256 constant CURVE_ORDER = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001;
-    uint256 constant CURVE_B = 3;
-
-    // a = (p+1) / 4
-    uint256 constant CURVE_A = 0xc19139cb84c680a6e14116da060561765e05aa45a1c72a34f082305b61f3f52;
-
+contract Verification{
     struct G1Point {
         uint X;
         uint Y;
@@ -22,35 +13,6 @@ contract Verification
         uint[2] Y;
     }
 
-    // (P+1) / 4
-    function A() pure internal returns (uint256) {
-        return CURVE_A;
-    }
-/*
-    function P() pure internal returns (uint256) {
-        return FIELD_ORDER;
-    }
-*/
-
-    function N() pure internal returns (uint256) {
-        return CURVE_ORDER;
-    }
-
-    /// return the generator of G1
-    function P1() pure internal returns (G1Point memory) {
-        return G1Point(1, 2);
-    }
-
-	/// return the generator of G2
-	function P2() pure internal returns (G2Point memory) {
-		return G2Point(
-			[11559732032986387107991004021392285783925812861821192530917403151452391805634,
-			 10857046999023057135944570762232829481370756359578518086990519993285655852781],
-			[4082367875863433681332203403145435568316851327593401208105741076214120093531,
-			 8495653923123431417604973247489272438418190587263600148770280649306958101930]
-		);
-	}
-    /// return the negation of p, i.e. p.add(p.negate()) should be zero.
 	function g1neg(G1Point memory p) pure internal returns (G1Point memory) {
 		// The prime q in the base field F_q for G1
 		uint q = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
@@ -91,8 +53,59 @@ contract Verification
         require(success);
     }
 
+	function pairing(G1Point[] memory p1, G2Point[] memory p2) view internal returns (bool) {
+		require(p1.length == p2.length);
+		uint elements = p1.length;
+		uint inputSize = elements * 6;
+		uint[] memory input = new uint[](inputSize);
+		for (uint i = 0; i < elements; i++)
+		{
+			input[i * 6 + 0] = p1[i].X;
+			input[i * 6 + 1] = p1[i].Y;
+			input[i * 6 + 2] = p2[i].X[0];
+			input[i * 6 + 3] = p2[i].X[1];
+			input[i * 6 + 4] = p2[i].Y[0];
+			input[i * 6 + 5] = p2[i].Y[1];
+		}
+		uint[1] memory out;
+		bool success;
+		assembly {
+			success := staticcall(sub(gas()	, 2000), 8, add(input, 0x20), mul(inputSize, 0x20), out, 0x20)
+			// Use "invalid" to make gas estimation work
+			//switch success case 0 { invalid }
+		}
+		require(success);
+		return out[0] != 0;
+	}
 
-    
+	/// Convenience method for a pairing check for two pairs.
+	function pairingProd2(G1Point memory a1, G2Point memory a2, G1Point memory b1, G2Point memory b2) view internal returns (bool) {
+		G1Point[] memory p1 = new G1Point[](2);
+		G2Point[] memory p2 = new G2Point[](2);
+		p1[0] = a1;
+		p1[1] = b1;
+		p2[0] = a2;
+		p2[1] = b2;
+		return pairing(p1, p2);
+	}
+
+    /// Convenience method for a pairing check for three pairs.
+	function pairingProd3(
+			G1Point memory a1, G2Point memory a2,
+			G1Point memory b1, G2Point memory b2,
+			G1Point memory c1, G2Point memory c2
+	) view internal returns (bool) {
+		G1Point[] memory p1 = new G1Point[](3);
+		G2Point[] memory p2 = new G2Point[](3);
+		p1[0] = a1;
+		p1[1] = b1;
+		p1[2] = c1;
+		p2[0] = a2;
+		p2[1] = b2;
+		p2[2] = c2;
+		return pairing(p1, p2);
+	}
+
     //Operation in group G2
     uint256 internal constant FIELD_MODULUS = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47;
     uint256 internal constant TWISTBX = 0x2b149d40ceb8aaae81be18991be06ac3b5b4c5e559dbefa33267e6dc24a138e5;
@@ -491,79 +504,6 @@ contract Verification
         }
     }
 
-	function pairing(G1Point[] memory p1, G2Point[] memory p2) view internal returns (bool) {
-		require(p1.length == p2.length);
-		uint elements = p1.length;
-		uint inputSize = elements * 6;
-		uint[] memory input = new uint[](inputSize);
-		for (uint i = 0; i < elements; i++)
-		{
-			input[i * 6 + 0] = p1[i].X;
-			input[i * 6 + 1] = p1[i].Y;
-			input[i * 6 + 2] = p2[i].X[0];
-			input[i * 6 + 3] = p2[i].X[1];
-			input[i * 6 + 4] = p2[i].Y[0];
-			input[i * 6 + 5] = p2[i].Y[1];
-		}
-		uint[1] memory out;
-		bool success;
-		assembly {
-			success := staticcall(sub(gas()	, 2000), 8, add(input, 0x20), mul(inputSize, 0x20), out, 0x20)
-			// Use "invalid" to make gas estimation work
-			//switch success case 0 { invalid }
-		}
-		require(success);
-		return out[0] != 0;
-	}
-
-
-	/// Convenience method for a pairing check for two pairs.
-	function pairingProd2(G1Point memory a1, G2Point memory a2, G1Point memory b1, G2Point memory b2) view internal returns (bool) {
-		G1Point[] memory p1 = new G1Point[](2);
-		G2Point[] memory p2 = new G2Point[](2);
-		p1[0] = a1;
-		p1[1] = b1;
-		p2[0] = a2;
-		p2[1] = b2;
-		return pairing(p1, p2);
-	}
-
-	/// Convenience method for a pairing check for three pairs.
-	function pairingProd3(
-			G1Point memory a1, G2Point memory a2,
-			G1Point memory b1, G2Point memory b2,
-			G1Point memory c1, G2Point memory c2
-	) view internal returns (bool) {
-		G1Point[] memory p1 = new G1Point[](3);
-		G2Point[] memory p2 = new G2Point[](3);
-		p1[0] = a1;
-		p1[1] = b1;
-		p1[2] = c1;
-		p2[0] = a2;
-		p2[1] = b2;
-		p2[2] = c2;
-		return pairing(p1, p2);
-	}
-
-	/// Convenience method for a pairing check for four pairs.
-	function pairingProd4(
-			G1Point memory a1, G2Point memory a2,
-			G1Point memory b1, G2Point memory b2,
-			G1Point memory c1, G2Point memory c2,
-			G1Point memory d1, G2Point memory d2
-	) view internal returns (bool) {
-		G1Point[] memory p1 = new G1Point[](4);
-		G2Point[] memory p2 = new G2Point[](4);
-		p1[0] = a1;
-		p1[1] = b1;
-		p1[2] = c1;
-		p1[3] = d1;
-		p2[0] = a2;
-		p2[1] = b2;
-		p2[2] = c2;
-		p2[3] = d2;
-		return pairing(p1, p2);
-	}
 
     function DLEQVerify(G1Point memory g, G1Point memory y1, G1Point memory a1, G1Point memory h, G1Point memory y2, G1Point memory a2, uint256 c, uint256 z) public payable returns (bool)
     {
@@ -592,20 +532,6 @@ contract Verification
 	    G2Point vk;   	
     }
 
-    struct G1DLEQProof {
-        G1Point a1;
-        G1Point a2;
-        uint256 c;
-        uint256 z;
-    }
-
-    struct G1G2DLEQProof {
-        G1Point a1;
-        G2Point a2;
-        uint256 c;
-        uint256 z;
-    }
-
     struct Cipher {
         G2Point C0;
         string C1;
@@ -614,6 +540,13 @@ contract Verification
     struct ReKey{
         G1Point RK0;
         G1Point RK1;
+    }
+
+    struct G1DLEQProof {
+        G1Point a1;
+        G1Point a2;
+        uint256 c;
+        uint256 z;
     }
 
     struct ReKeyProof{
@@ -626,24 +559,22 @@ contract Verification
         G1Point C3;
     }
 
-
     SystemKey[] PK;
     UKey OwnerKey;
-    UKey UserKey;
-    G1Point[] DRsKey;
-    G1G2DLEQProof VKoDLEQ;
-    G1G2DLEQProof VKuDLEQ;
+	UKey UserKey;
     bool VKoResult;
-    bool VKuResult;
-    Cipher ciphertext;
-    ReKey[] ReKeys;
-    G1Point Commitment;
-    ReKeyProof[] ReKeysProof;
-    bool[] ReKeysResult;
+	bool VKuResult;
+	G1Point[] DRsKey;
+	Cipher ciphertext;
+	ReKey[] ReKeys;
+    ReKey[] OnlyReKeys;
+	uint256[] index;
+    uint256[] Onlyindex;
+	bool ReKeysResult;
+    bool OnlyReKeysResult;
     ReCipher[] reciphertexts;
-    uint256[] index;
+    ReCipher[] Onlyreciphertexts;
 
-    
     function UploadSystemKey(G1Point[] memory tau1, G2Point[] memory tau2) public {
         SystemKey memory pk;
     	for (uint i = 0; i < tau1.length; i++) {
@@ -657,18 +588,6 @@ contract Verification
         OwnerKey.pk = pk;
         OwnerKey.vk = vk;
     }
-
-    function UploadUserKey(G1Point memory pk,G2Point memory vk) public {
-        UserKey.pk = pk;
-        UserKey.vk = vk;
-    }
-
-    function UploadDRsKey(G1Point[] memory pkArray) public {
-        for (uint i = 0; i < pkArray.length; i++) {
-            	DRsKey.push(pkArray[i]);
-        	}
-    }
-
 
     function VKoVerify() public 
     {
@@ -685,7 +604,11 @@ contract Verification
         return VKoResult;
     }
 
-    function VKuVerify() public
+    function UploadUserKey(G1Point memory pk,G2Point memory vk) public {
+        UserKey.pk = pk;
+        UserKey.vk = vk;
+    }
+   function VKuVerify() public
     {
         if (pairingProd2(PK[0].Tau1, UserKey.vk, g1neg(UserKey.pk), PK[0].Tau2))
         {
@@ -700,96 +623,111 @@ contract Verification
         return VKuResult;
     }
 
+	
+    function UploadDRsKey(G1Point[] memory pkArray) public {
+        for (uint i = 0; i < pkArray.length; i++) {
+            	DRsKey.push(pkArray[i]);
+        	}
+    }
 
     function UploadCiphertext(G2Point memory c0, string memory c1) public {
         ciphertext.C0 = c0;
         ciphertext.C1 = c1;
     }
 
-    function UploadReKeys(G1Point[] memory rks0, G1Point[] memory rks1) public {
+    function UploadReKeys(G1Point[] memory rks0, G1Point[] memory rks1,uint256[] memory I, G1Point memory commitment, G1Point[] memory witness, G1Point[] memory a1, G1Point[] memory a2,uint256[] memory c, uint256[] memory z) public {
         ReKey memory rk;
         for (uint i = 0; i < rks0.length; i++) {
-            rk.RK0 = rks0[i];
-            rk.RK1 = rks1[i];
-            ReKeys.push(rk);
+            if (!KZGVerify(rks0[i], rks1[i], I[i], commitment, witness[i])){
+                //ReKeysResult.push(false);
+                return;
+            }else{
+                G1Point memory base = g1add(OwnerKey.pk,g1add(DRsKey[i],UserKey.pk));
+                if (!DLEQVerify(PK[0].Tau1,rks0[i],a1[i],base,rks1[i],a2[i], c[i],z[i])){
+                    //ReKeysResult.push(false);
+                    return;
+                }else{
+                    //ReKeysResult.push(true);
+                    rk.RK0 = rks0[i];
+                    rk.RK1 = rks1[i];
+                    ReKeys.push(rk);                  
+                }
+            }    
+        }
+        ReKeysResult=true;
+    }
+
+    function GetReKeys() public view returns (ReKey[] memory){
+        return ReKeys;
+    }
+
+    function OnlyUploadReKeys(G1Point[] memory rks0, G1Point[] memory rks1,uint256[] memory I, G1Point memory commitment, G1Point[] memory witness, G1Point[] memory a1, G1Point[] memory a2,uint256[] memory c, uint256[] memory z) public {
+        ReKey memory rk1;
+        for (uint i = 0; i < rks0.length; i++) {
+            rk1.RK0 = rks0[i];
+            rk1.RK1 = rks1[i];
+            OnlyReKeys.push(rk1);  
+            OnlyReKeysResult=true;
         }
     }
 
-    function UploadReKeysProof(uint256[] memory I, G1Point memory commitment, G1Point[] memory witness, G1Point[] memory a1, G1Point[] memory a2,uint256[] memory c, uint256[] memory z)public{
-        for (uint i=0;i<I.length;i++){
-            index.push(I[i]);
-        }
-        Commitment=commitment;
-        G1DLEQProof memory prf;
-        ReKeyProof memory proof;
-        for (uint i = 0; i < witness.length; i++) {
-            prf.a1=a1[i];
-            prf.a2=a2[i];
-            prf.c=c[i];
-            prf.z=z[i];
-            proof.Witness = witness[i];
-            proof.ShareDLEQ = prf;
-            ReKeysProof.push(proof);
-        }
-    }
-
-   function ReKeysVerify()public{
-        G1Point memory base;
+   function KZGVerify(G1Point memory rsk0, G1Point memory rsk1, uint256 i, G1Point memory commitment, G1Point memory witness)public returns (bool){
         G1Point memory left;
         G2Point memory g2i;
         G2Point memory right;
 
-        for (uint256 i = 0; i < ReKeysProof.length; i++) 
+        //Verify e(commitment/g^{s_i},g2)e((witness[i])^{-1},g2^{\tau}-g2^i)==1
+        left = g1add(commitment,g1neg(rsk0));
+        (g2i.X[1],g2i.X[0],g2i.Y[1],g2i.Y[0]) = ECTwistMul(i,PK[0].Tau2.X[1],PK[0].Tau2.X[0],PK[0].Tau2.Y[1],PK[0].Tau2.Y[0]);
+        (g2i.X[1],g2i.X[0],g2i.Y[1],g2i.Y[0])=ECTwistNeg(g2i.X[1],g2i.X[0],g2i.Y[1],g2i.Y[0]);
+        (right.X[1],right.X[0],right.Y[1],right.Y[0]) = ECTwistAdd(PK[1].Tau2.X[1],PK[1].Tau2.X[0],PK[1].Tau2.Y[1],PK[1].Tau2.Y[0],g2i.X[1],g2i.X[0],g2i.Y[1],g2i.Y[0]);
+        if (pairingProd2(left, PK[0].Tau2, g1neg(witness), right))
         {
-            //Verify e(commitment/g^{s_i},g2)e((witness[i])^{-1},g2^{\tau}-g2^i)==1
-            left = g1add(Commitment,g1neg(ReKeys[i].RK0));
-            (g2i.X[1],g2i.X[0],g2i.Y[1],g2i.Y[0]) = ECTwistMul(uint256(index[i]),PK[0].Tau2.X[1],PK[0].Tau2.X[0],PK[0].Tau2.Y[1],PK[0].Tau2.Y[0]);
-            (g2i.X[1],g2i.X[0],g2i.Y[1],g2i.Y[0])=ECTwistNeg(g2i.X[1],g2i.X[0],g2i.Y[1],g2i.Y[0]);
-            (right.X[1],right.X[0],right.Y[1],right.Y[0]) = ECTwistAdd(PK[1].Tau2.X[1],PK[1].Tau2.X[0],PK[1].Tau2.Y[1],PK[1].Tau2.Y[0],g2i.X[1],g2i.X[0],g2i.Y[1],g2i.Y[0]);
-            if (pairingProd2(left, PK[0].Tau2, g1neg(ReKeysProof[i].Witness), right))
-            {
-                base = g1add(OwnerKey.pk,g1add(DRsKey[i],UserKey.pk));
-                if (!DLEQVerify(PK[0].Tau1,ReKeys[i].RK0,ReKeysProof[i].ShareDLEQ.a1,base,ReKeys[i].RK1,ReKeysProof[i].ShareDLEQ.a2,ReKeysProof[i].ShareDLEQ.c,ReKeysProof[i].ShareDLEQ.z)){
-                    index[i]=0;
-                }
-                ReKeysResult.push(true);
-            }
-            else
-            {
-                index[i]=0;
-            }
+            return true;
         }
+        return false;
     }
 
-    function GetReKeysResult() public view returns (bool[] memory){
+
+    function GetReKeysResult() public view returns (bool){
         return ReKeysResult;
     }
-
+    function GetOnlyReKeysResult() public view returns (bool){
+        return OnlyReKeysResult;
+    }
 
     function UploadReCipher(G1Point[] memory c3) public{
         ReCipher memory recipher;
-        for (uint i=0;i<index.length;i++){
-            recipher.C2= ReKeys[index[i]-1].RK0;
+        for (uint i=0;i<c3.length;i++){
+            recipher.C2= ReKeys[i].RK0;
             recipher.C3=c3[i];
-            reciphertexts.push(recipher);
-        }
-    }
-
-    function ReCipherVerify()public{
-        for (uint i=0;i<reciphertexts.length;i++){
-            if (!pairingProd3(g1neg(reciphertexts[i].C3),PK[0].Tau2,reciphertexts[i].C2,OwnerKey.vk,reciphertexts[i].C2,UserKey.vk)){
-                index[i]=0;
+            if (ReCipherVerify(recipher)){
+                reciphertexts.push(recipher);
+                index.push(i+1);
             }
         }
     }
 
+    function OnlyUploadReCipher(G1Point[] memory c3) public{
+        ReCipher memory recipher;
+        for (uint i=0;i<c3.length;i++){
+            recipher.C2= ReKeys[i].RK0;
+            Onlyreciphertexts.push(recipher);
+            Onlyindex.push(i+1);
+        }
+    }
 
-    function GetIndex() public view returns (uint[] memory){
-        return index;
+    function ReCipherVerify(ReCipher memory recipher)public returns (bool){
+        if (pairingProd3(g1neg(recipher.C3),PK[0].Tau2,recipher.C2,OwnerKey.vk,recipher.C2,UserKey.vk)){
+            return true;
+        }
+        return false;
     }
 
     function GetReCipher() public view returns (G2Point memory, string memory,ReCipher[] memory){
         return (ciphertext.C0,ciphertext.C1,reciphertexts);
     }
-
+    function GetIndex() public view returns (uint[] memory){
+        return index;
+    }
 }
