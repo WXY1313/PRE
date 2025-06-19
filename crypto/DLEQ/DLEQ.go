@@ -77,7 +77,7 @@ func DLEQProofG1_G2(G *bn256.G1, H *bn256.G2, xG *bn256.G1, xH *bn256.G2, x *big
 }
 
 // Verify verifies the DLEQ proof
-func VerifyG1(c, z *big.Int, G, H, xG, xH, rG, rH *bn256.G1) error {
+func VerifyG1(c, z *big.Int, G, H, xG, xH, rG, rH *bn256.G1) bool {
 	zG := new(bn256.G1).ScalarMult(G, z)
 	zH := new(bn256.G1).ScalarMult(H, z)
 	cxG := new(bn256.G1).ScalarMult(xG, c)
@@ -85,9 +85,9 @@ func VerifyG1(c, z *big.Int, G, H, xG, xH, rG, rH *bn256.G1) error {
 	a := new(bn256.G1).Add(zG, cxG)
 	b := new(bn256.G1).Add(zH, cxH)
 	if !(rG.String() == a.String() && rH.String() == b.String()) {
-		return errors.New("invalid proof")
+		return false
 	}
-	return nil
+	return true
 }
 
 func VerifyG1_G2(c, z *big.Int, G *bn256.G1, H *bn256.G2, xG *bn256.G1, xH *bn256.G2, rG *bn256.G1, rH *bn256.G2) error {

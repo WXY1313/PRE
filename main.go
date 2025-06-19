@@ -2,7 +2,7 @@
 package main
 
 import (
-	Contract "PRE/gen" // 替换为你的合约生成的Go绑定包名
+	Contract "PRE/gen"
 	"context"
 	"crypto/rand"
 	"fmt"
@@ -78,46 +78,46 @@ func recoverKey(Key []*bn256.G1, indices []*big.Int, threshold int) *bn256.G1 {
 }
 
 func main() {
-	// 1. 加载加密的钱包文件
+	// 1. Load encrypted wallet-file
 	walletPath := "./wallet/UTC--2025-05-29T13-51-04.984946200Z--9dda53414c9a26b1054427718cd991ec14bd5fd4"
 	walletData, err := os.ReadFile(walletPath)
 	if err != nil {
-		log.Fatalf("读取钱包文件失败: %v", err)
+		log.Fatalf("Read wallet-file fail: %v", err)
 	}
 
-	// 2. 解密钱包 (使用你的钱包密码)
+	// 2. Decrypt wallet
 	key, err := keystore.DecryptKey(walletData, "password")
 	if err != nil {
-		log.Fatalf("解密钱包失败: %v", err)
+		log.Fatalf("Decrypt wallet fail: %v", err)
 	}
 
-	// 3. 连接到以太坊节点 (这里使用Sepolia测试网)
+	// 3. Link Sepolia network
 	client, err := ethclient.Dial("https://sepolia.infura.io/v3/de28dcce3b8f4d319a904bfab58d1e1a")
 	if err != nil {
-		log.Fatalf("连接以太坊节点失败: %v", err)
+		log.Fatalf("Fail to link Sepolia nodes: %v", err)
 	}
 	defer client.Close()
 
-	// 4. 获取链ID和gas价格
+	// 4. Obtain chain-ID and gas price
 	chainID, err := client.NetworkID(context.Background())
 	if err != nil {
-		log.Fatalf("获取网络ID失败: %v", err)
+		log.Fatalf("Fail to obtain network-ID: %v", err)
 	}
 
-	// 5. 创建合约实例
-	contractAddress := common.HexToAddress("0x34b789613df1aED319B1bFdC4452e725448e5315")
+	// 5. Build contract instance
+	contractAddress := common.HexToAddress("0x198c4e01792E3975F6d332381AA03f7CC97740AB")
 	contract, err := Contract.NewContract(contractAddress, client)
 	if err != nil {
-		log.Fatalf("创建合约实例失败: %v", err)
+		log.Fatalf("Fail to build contract instance: %v", err)
 	}
 
-	// 6. 准备交易选项
+	// 6. prepare transaction options
 	auth, err := bind.NewKeyedTransactorWithChainID(key.PrivateKey, chainID)
 	if err != nil {
-		log.Fatalf("创建交易签名者失败: %v", err)
+		log.Fatalf("Fail to build transaction signature: %v", err)
 	}
 
-	// 设置合理的Gas参数
+	// set gas parameters
 	auth.GasLimit = 300000000
 	auth.Context = context.Background()
 
@@ -127,6 +127,7 @@ func main() {
 	// threshold value
 	//threshold := 2
 	threshold := numShares/2 + 1
+	n := 100
 
 	fmt.Printf("The number of shares is %v\n", numShares)
 	fmt.Printf("The threshold value is %v\n", threshold)
@@ -144,29 +145,29 @@ func main() {
 
 	code, err := client.CodeAt(context.Background(), contractAddress, nil)
 	if err != nil {
-		log.Fatal("获取合约代码失败：", err)
+		log.Fatal("Fail to obtain contract code：", err)
 	}
 	if len(code) == 0 {
-		log.Fatalf("地址 %s 上没有合约代码，无法交互", contractAddress.Hex())
+		log.Fatalf("Fail to deploy contract code", contractAddress.Hex())
 	}
 
 	//Send UploadSystemKey transaction
 	auth1, err := bind.NewKeyedTransactorWithChainID(key.PrivateKey, chainID)
 	if err != nil {
-		log.Fatalf("创建交易签名者失败: %v", err)
+		log.Fatalf("Fail to build transaction signature: %v", err)
 	}
-	// 7. 调用函数
+	//invoke function
 	tx1, err := contract.UploadSystemKey(auth1, PKTau1, PKTau2)
 	if err != nil {
-		log.Fatalf("调用UploadSystemKey失败: %v", err)
+		log.Fatalf("Fail to invoke UploadSystemKey: %v", err)
 	}
-	//8. 等待交易被挖出
+	//wait for the transaction to succeed
 	receipt1, err := bind.WaitMined(context.Background(), client, tx1)
 	if err != nil {
-		log.Fatalf("等待交易确认失败: %v", err)
+		log.Fatalf("Fail to ensure transaction: %v", err)
 	}
 	if receipt1.Status == 0 {
-		log.Fatal("交易执行失败")
+		log.Fatal("Fial to excute transaction")
 	}
 	fmt.Printf("UploadSystemKey Gas used: %d\n", receipt1.GasUsed)
 
@@ -181,19 +182,18 @@ func main() {
 	//Send UploadOwnerKey transaction
 	auth2, err := bind.NewKeyedTransactorWithChainID(key.PrivateKey, chainID)
 	if err != nil {
-		log.Fatalf("创建交易签名者失败: %v", err)
+		log.Fatalf("Fail to build transaction signature: %v", err)
 	}
 	tx2, err := contract.UploadOwnerKey(auth2, Convert.G1ToG1Point(pko), Convert.G2ToG2Point(vko))
 	if err != nil {
-		log.Fatalf("调用UploadOwnerKey失败: %v", err)
+		log.Fatalf("Fail to invoke UploadOwnerKey: %v", err)
 	}
-	//8. 等待交易被挖出
 	receipt2, err := bind.WaitMined(context.Background(), client, tx2)
 	if err != nil {
-		log.Fatalf("等待交易确认失败: %v", err)
+		log.Fatalf("Fail to ensure transaction: %v", err)
 	}
 	if receipt2.Status == 0 {
-		log.Fatal("交易执行失败")
+		log.Fatal("Fail to excute transaction")
 	}
 	fmt.Printf("UploadOwnerKey Gas used: %d\n", receipt2.GasUsed)
 
@@ -201,19 +201,18 @@ func main() {
 	//Send VKoVerify transaction
 	auth3, err := bind.NewKeyedTransactorWithChainID(key.PrivateKey, chainID)
 	if err != nil {
-		log.Fatalf("创建交易签名者失败: %v", err)
+		log.Fatalf("Fail to build transaction signature: %v", err)
 	}
 	tx3, err := contract.VKoVerify(auth3)
 	if err != nil {
-		log.Fatalf("调用VKoVerify失败: %v", err)
+		log.Fatalf("Fail to invoke VKoVerify: %v", err)
 	}
-	//8. 等待交易被挖出
 	receipt3, err := bind.WaitMined(context.Background(), client, tx3)
 	if err != nil {
-		log.Fatalf("等待交易确认失败: %v", err)
+		log.Fatalf("Fail to ensure transaction: %v", err)
 	}
 	if receipt3.Status == 0 {
-		log.Fatal("交易执行失败")
+		log.Fatal("Fail to excute transaction")
 	}
 	fmt.Printf("VKoVerify used: %d\n", receipt3.GasUsed)
 	VKoResult, _ := contract.GetVKoResult(&bind.CallOpts{})
@@ -227,38 +226,36 @@ func main() {
 	//Send UploadUserKey transaction
 	auth4, err := bind.NewKeyedTransactorWithChainID(key.PrivateKey, chainID)
 	if err != nil {
-		log.Fatalf("创建交易签名者失败: %v", err)
+		log.Fatalf("Fail to build transaction signature: %v", err)
 	}
 	tx4, err := contract.UploadUserKey(auth4, Convert.G1ToG1Point(pku), Convert.G2ToG2Point(vku))
 	if err != nil {
-		log.Fatalf("调用UploadUserKey失败: %v", err)
+		log.Fatalf("Fail to invoke UploadUserK: %v", err)
 	}
-	//8. 等待交易被挖出
 	receipt4, err := bind.WaitMined(context.Background(), client, tx4)
 	if err != nil {
-		log.Fatalf("等待交易确认失败: %v", err)
+		log.Fatalf("Fail to ensure transaction: %v", err)
 	}
 	if receipt4.Status == 0 {
-		log.Fatal("交易执行失败")
+		log.Fatal("Fail to excute transaction")
 	}
 	fmt.Printf("UploadUserKey Gas used: %d\n", receipt4.GasUsed)
 	//Verify verification key VKu
 	//Send VKuVerify transaction
 	auth5, err := bind.NewKeyedTransactorWithChainID(key.PrivateKey, chainID)
 	if err != nil {
-		log.Fatalf("创建交易签名者失败: %v", err)
+		log.Fatalf("Fail to transaction signature: %v", err)
 	}
 	tx5, err := contract.VKuVerify(auth5)
 	if err != nil {
-		log.Fatalf("调用VKuVerify失败: %v", err)
+		log.Fatalf("Faic to invoke VKuVerify: %v", err)
 	}
-	//8. 等待交易被挖出
 	receipt5, err := bind.WaitMined(context.Background(), client, tx5)
 	if err != nil {
-		log.Fatalf("等待交易确认失败: %v", err)
+		log.Fatalf("Fail to ensure transaction: %v", err)
 	}
 	if receipt5.Status == 0 {
-		log.Fatal("交易执行失败")
+		log.Fatal("Fail to excute transaction")
 	}
 	fmt.Printf("VKuVerify used: %d\n", receipt5.GasUsed)
 	VKuResult, _ := contract.GetVKuResult(&bind.CallOpts{})
@@ -276,22 +273,21 @@ func main() {
 	//Upload all public keys of data regulators on the blockchain
 	auth6, err := bind.NewKeyedTransactorWithChainID(key.PrivateKey, chainID)
 	if err != nil {
-		log.Fatalf("创建交易签名者失败: %v", err)
+		log.Fatalf("Fail to build transaction signature: %v", err)
 	}
 	tx6, err := contract.UploadDRsKey(auth6, DRsPK)
 	if err != nil {
-		log.Fatalf("调用UploadDRsKey失败: %v", err)
+		log.Fatalf("Fail to invoke UploadDRsKey: %v", err)
 	}
 	//8. 等待交易被挖出
 	receipt6, err := bind.WaitMined(context.Background(), client, tx6)
 	if err != nil {
-		log.Fatalf("等待交易确认失败: %v", err)
+		log.Fatalf("Fail to ensure transaction: %v", err)
 	}
 	if receipt4.Status == 0 {
-		log.Fatal("交易执行失败")
+		log.Fatal("Fail to excute transaction")
 	}
 	fmt.Printf("UploadDRsKey Gas used: %d\n", receipt6.GasUsed)
-
 	fmt.Printf("The total gas used in user registration phase is %v\n", receipt2.GasUsed+receipt3.GasUsed+receipt4.GasUsed+receipt5.GasUsed+receipt6.GasUsed)
 
 	//======================================Sensitive Message Encryption========================================//
@@ -315,22 +311,20 @@ func main() {
 	//Upload all public keys of data regulators on the blockchain
 	auth7, err := bind.NewKeyedTransactorWithChainID(key.PrivateKey, chainID)
 	if err != nil {
-		log.Fatalf("创建交易签名者失败: %v", err)
+		log.Fatalf("Fail to build transaction signature: %v", err)
 	}
 	tx7, err := contract.UploadCiphertext(auth7, CipherC0, CipherC1)
 	if err != nil {
-		log.Fatalf("调用UploadDRsKey失败: %v", err)
+		log.Fatalf("Fail to invoke UploadCiphertext: %v", err)
 	}
 	//8. 等待交易被挖出
 	receipt7, err := bind.WaitMined(context.Background(), client, tx7)
 	if err != nil {
-		log.Fatalf("等待交易确认失败: %v", err)
+		log.Fatalf("Fail to ensure transaction: %v", err)
 	}
 	if receipt4.Status == 0 {
-		log.Fatal("交易执行失败")
+		log.Fatal("Fail to exccute transaction")
 	}
-	fmt.Printf("UploadDRsKey Gas used: %d\n", receipt7.GasUsed)
-
 	fmt.Printf("UploadCiphertext Gas used: %d\n", receipt7.GasUsed)
 	fmt.Printf("The total gas used in sensitive message encryption phase is %v\n", receipt7.GasUsed)
 
@@ -409,26 +403,42 @@ func main() {
 		zz[i] = prf_si[i].Z
 		w[i] = Convert.G1ToG1Point(witness[i])
 	}
+
+	var ReKeyVerifyResult bool = true
+	for j := 0; j < n; j++ {
+		for i := 0; i < numShares; i++ {
+			if !KZG.Verify(PK, Commit, witness[i], big.NewInt(int64(i+1)), ReKey0[i]) {
+				ReKeyVerifyResult = false
+				fmt.Printf("%vth share is fault\n", i)
+				break
+			} else {
+				if !DLEQ.VerifyG1(prf_si[i].C, prf_si[i].Z, PK.Tau1[0], Base[i], ReKey.RK0[i], ReKey.RK1[i], prf_si[i].RG, prf_si[i].RH) {
+					fmt.Printf("%vth share is fault\n", i)
+					ReKeyVerifyResult = false
+					break
+				}
+			}
+		}
+	}
+	fmt.Printf("ReKeyVerifyResult Result:%v\n", ReKeyVerifyResult)
 	//Upload all public keys of data regulators on the blockchain
 	auth8, err := bind.NewKeyedTransactorWithChainID(key.PrivateKey, chainID)
 	if err != nil {
-		log.Fatalf("创建交易签名者失败: %v", err)
+		log.Fatalf("Fail to build transaction signature: %v", err)
 	}
 	tx8, err := contract.UploadReKeys(auth8, RK0s, RK1s, I, Convert.G1ToG1Point(Commit), w, a1, a2, cc, zz)
 	if err != nil {
-		log.Fatalf("调用UploadReKeys失败: %v", err)
+		log.Fatalf("Fail to invoke UploadReKeys: %v", err)
 	}
 	//8. 等待交易被挖出
 	receipt8, err := bind.WaitMined(context.Background(), client, tx8)
 	if err != nil {
-		log.Fatalf("等待交易确认失败: %v", err)
+		log.Fatalf("Fail to ensure transaction: %v", err)
 	}
 	if receipt8.Status == 0 {
-		log.Fatal("交易执行失败")
+		log.Fatal("Fail to excute transaction")
 	}
 	fmt.Printf("UploadReKeys Gas used: %d\n", receipt8.GasUsed)
-	//ReKeys, _ := contract.GetReKeys(&bind.CallOpts{})
-	//fmt.Printf("Rekeys: %v\n", ReKeys)
 
 	ReKeyResult, _ := contract.GetReKeysResult(&bind.CallOpts{})
 	//ReKeyResultIndex, _ := contract.GetIndex(&bind.CallOpts{})
@@ -436,29 +446,8 @@ func main() {
 	//fmt.Printf("The index of correct re-encrytped key shares  is %v\n", ReKeyResultIndex)
 	fmt.Printf("The total gas used in re-encrypted key generation phase is %v\n", receipt8.GasUsed)
 
-	auth88, err := bind.NewKeyedTransactorWithChainID(key.PrivateKey, chainID)
-	if err != nil {
-		log.Fatalf("创建交易签名者失败: %v", err)
-	}
-	tx88, err := contract.OnlyUploadReKeys(auth88, RK0s, RK1s, I, Convert.G1ToG1Point(Commit), w, a1, a2, cc, zz)
-	if err != nil {
-		log.Fatalf("调用UploadReKeys失败: %v", err)
-	}
-	//8. 等待交易被挖出
-	receipt88, err := bind.WaitMined(context.Background(), client, tx88)
-	if err != nil {
-		log.Fatalf("等待交易确认失败: %v", err)
-	}
-	if receipt88.Status == 0 {
-		log.Fatal("交易执行失败")
-	}
-	fmt.Printf("OnlyUploadRekeys Gas used: %d\n", receipt88.GasUsed)
-	//OnlyReKeys, _ := contract.GetOnlyReKeys(&bind.CallOpts{})
-	//fmt.Printf("OnlyRekeys: %v\n", OnlyReKeys)
-	OnlyReKeyResult, _ := contract.GetOnlyReKeysResult(&bind.CallOpts{})
 	//ReKeyResultIndex, _ := contract.GetIndex(&bind.CallOpts{})
-	fmt.Printf("The only Verification result of re-encrytped key shares is %v\n", OnlyReKeyResult)
-	fmt.Printf("ReKeysVerify Gas used: %d\n", receipt8.GasUsed-receipt88.GasUsed)
+	//fmt.Printf("The only Verification result of re-encrytped key shares is %v\n", OnlyReKeyResult)
 	//======================================Data Ciphertext Re-encryption========================================//
 	//Compute re-encrypted ciphertext(off-chain)
 	//var ReCipher RC
@@ -468,6 +457,19 @@ func main() {
 		c3[i] = new(bn256.G1).Add(ReKey.RK1[i], new(bn256.G1).Neg(new(bn256.G1).ScalarMult(ReKey.RK0[i], sk[i])))
 	}
 
+	var ReEncVerifyResult bool = true
+	for j := 0; j < n; j++ {
+		for i := 0; i < numShares; i++ {
+			left := bn256.Pair(c3[i], PK.Tau2[0])
+			right := new(bn256.GT).Add(bn256.Pair(ReKey0[i], vko), bn256.Pair(ReKey0[i], vku))
+			if left.String() != right.String() {
+				ReEncVerifyResult = false
+				break
+			}
+		}
+	}
+	fmt.Printf("ReEncVerify Result:%v\n", ReEncVerifyResult)
+
 	Convertc3 := make([]Contract.VerificationG1Point, numShares)
 	for i := 0; i < numShares; i++ {
 		Convertc3[i] = Convert.G1ToG1Point(c3[i])
@@ -475,39 +477,21 @@ func main() {
 
 	auth11, err := bind.NewKeyedTransactorWithChainID(key.PrivateKey, chainID)
 	if err != nil {
-		log.Fatalf("创建交易签名者失败: %v", err)
+		log.Fatalf("Fail to ensure transaction signature: %v", err)
 	}
 	tx11, err := contract.UploadReCipher(auth11, Convertc3)
 	if err != nil {
-		log.Fatalf("调用UploadReCipher失败: %v", err)
+		log.Fatalf("Fail to invoke UploadReCipher: %v", err)
 	}
 	//8. 等待交易被挖出
 	receipt11, err := bind.WaitMined(context.Background(), client, tx11)
 	if err != nil {
-		log.Fatalf("等待交易确认失败: %v", err)
+		log.Fatalf("Fail to ensure transaction: %v", err)
 	}
 	if receipt11.Status == 0 {
-		log.Fatal("交易执行失败")
+		log.Fatal("Fail to excute transaction")
 	}
 	fmt.Printf("UploadReCipher Gas used: %d\n", receipt11.GasUsed)
-
-	auth111, err := bind.NewKeyedTransactorWithChainID(key.PrivateKey, chainID)
-	if err != nil {
-		log.Fatalf("创建交易签名者失败: %v", err)
-	}
-	tx111, err := contract.OnlyUploadReCipher(auth111, Convertc3)
-	if err != nil {
-		log.Fatalf("调用OnlyUploadReCipher失败: %v", err)
-	}
-	//8. 等待交易被挖出
-	receipt111, err := bind.WaitMined(context.Background(), client, tx111)
-	if err != nil {
-		log.Fatalf("等待交易确认失败: %v", err)
-	}
-	if receipt111.Status == 0 {
-		log.Fatal("交易执行失败")
-	}
-	fmt.Printf("ReCipherVerify Gas used: %d\n", receipt11.GasUsed-receipt111.GasUsed)
 
 	index, _ := contract.GetIndex(&bind.CallOpts{})
 	fmt.Printf("The correct re-ciphertext index is %v\n", index)

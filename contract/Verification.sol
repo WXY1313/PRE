@@ -708,13 +708,11 @@ contract Verification{
         }
     }
 
-    function OnlyUploadReCipher(G1Point[] memory c3) public{
+    function OnlyUploadReCipher(G1Point memory c3) public{
         ReCipher memory recipher;
-        for (uint i=0;i<c3.length;i++){
-            recipher.C2= ReKeys[i].RK0;
-            Onlyreciphertexts.push(recipher);
-            Onlyindex.push(i+1);
-        }
+        recipher.C2= ReKeys[0].RK0;
+        Onlyreciphertexts.push(recipher);
+        Onlyindex.push(1);
     }
 
     function ReCipherVerify(ReCipher memory recipher)public returns (bool){
